@@ -18,13 +18,16 @@ class Car(object):
         self.acceleration_command = 0
         self.rotation_command = 0
             
-    def draw(self):
-        self._draw_car()
+    def draw(self, scale):
+        self._draw_car(scale)
             
-    def _draw_car(self):
+    def _draw_car(self, scale):
+        scaled_x = self.x * scale
+        scaled_y = self.y * scale
+
         arcade.draw_circle_outline(
-            self.x,
-            self.y,
+            scaled_x,
+            scaled_y,
             2,
             arcade.color.WHITE,
             2
@@ -32,10 +35,10 @@ class Car(object):
         
         line_target = self._step(5)
         arcade.draw_line(
-            self.x,
-            self.y,
-            self.x + line_target[0],
-            self.y + line_target[1],
+            scaled_x,
+            scaled_y,
+            scaled_x + line_target[0],
+            scaled_y + line_target[1],
             arcade.color.WHITE,
             3
         )
@@ -58,19 +61,16 @@ class Car(object):
         
 
 class RacerGame(arcade.Window):
-    def __init__(self, track):
-        super().__init__(track.width, track.height)
+    def __init__(self, track, scale):
+        super().__init__(track.width * scale, track.height * scale)
         
-        arcade.set_background_color(arcade.color.WHITE)
-        self.fps = 0
-        self.background = None
-        self.boundaries = track.boundaries
-        self.collision = 0
-
-    def setup(self):
-        self.player_0 = Car(125, 125)
         self.background = arcade.load_texture('track.png')
-        
+        self.fps = 0
+        self.track = track
+        self.collision = False
+        self.player_0 = Car(track.start[0], track.start[1])
+        self.scale = scale
+
     def on_draw(self):
         arcade.start_render()
         arcade.draw_texture_rectangle(
@@ -80,17 +80,22 @@ class RacerGame(arcade.Window):
             self.height,
             self.background
         )
-        
-        self.player_0.draw()      
+
+        self.player_0.draw(self.scale)
         self._draw_debug()
         
     def update(self, delta_time):
         self.player_0.move(delta_time)
         self.fps = 1 / delta_time
-        self.check_collision()
+        self.collision = self.track.check_collision(
+            self.player_0.x,
+            self.player_0.y
+        )
 
-    def check_collision(self):
-        self.collision = self.boundaries[int(self.player_0.x), int(self.player_0.y)]
+        self.score = self.track.get_distance(
+            self.player_0.x,
+            self.player_0.y
+        )
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.UP:
@@ -115,6 +120,7 @@ class RacerGame(arcade.Window):
             "collision: {collision}\n" \
             "x: {x}\n" \
             "y: {y}\n" \
+            "score: {score}\n" \
             "fps: {fps}"
 
         text = text_format.format(
@@ -124,7 +130,8 @@ class RacerGame(arcade.Window):
             rotation=self.player_0.rotation,
             collision=self.collision,
             x=self.player_0.x,
-            y=self.player_0.y
+            y=self.player_0.y,
+            score=self.track.get_distance(self.player_0.x, self.player_0.y)
         )
         arcade.draw_text(text, 0, 0, arcade.color.WHITE, 12)
 
@@ -134,7 +141,8 @@ class Track(object):
         track_img = Image.open(path)
         self.width = track_img.width
         self.height = track_img.height
-        self.boundaries = self.parse_track(track_img)
+        self.boundaries, self.finish, self.start = self.parse_track(track_img)
+        self.distance_matrix = self.get_distance_matrix()
 
     @staticmethod
     def parse_track(track_img):
@@ -149,16 +157,72 @@ class Track(object):
 
         # red channel is boundry
         red_channel = flipped_data[:, :, 0]
-
-        # boolean borders
         boundaries = red_channel >= 128
-        return boundaries
+
+        # blue channel is finish
+        blue_channel = flipped_data[:, :, 2]
+        finish = np.transpose(np.nonzero(blue_channel))
+
+        # green channel is starting point
+        green_channel = flipped_data[:, :, 1]
+        start = np.transpose(np.nonzero(green_channel))[0]
+
+        return boundaries, finish, start
+
+    def check_collision(self, x, y):
+        pixel_x = int(round(x))
+        pixel_y = int(round(y))
+        collision = self.boundaries[pixel_x, pixel_y]
+        return collision
+
+    def get_distance(self, x, y):
+        pixel_x = int(round(x))
+        pixel_y = int(round(y))
+        distance = self.distance_matrix[pixel_x, pixel_y]
+        return distance
+
+    def get_distance_matrix(self):
+        finish_points = [(i[0], i[1]) for i in self.finish]
+        distance_matrix = self.recursive_distance(
+            distance_matrix=np.zeros(self.boundaries.shape),
+            points=finish_points,
+            distance=1
+        )
+        return distance_matrix
+
+    def recursive_distance(self, distance_matrix, points, distance):
+        # Set distance values
+        for point in points:
+            distance_matrix[point] = distance
+
+        # Determine neighbor points
+        valid_next_points = set()
+        for point in points:
+            for dx in [-1, 1]:
+                for dy in [-1, 1]:
+                    next = (
+                        point[0] + dx,
+                        point[1] + dy
+                    )
+                    try:
+                        if (not self.boundaries[next]) and distance_matrix[next] == 0:
+                            valid_next_points.add(next)
+                    except IndexError:
+                        pass
+
+        # Next iteration
+        if len(valid_next_points) > 0:
+            distance_matrix = self.recursive_distance(
+                distance_matrix,
+                valid_next_points,
+                distance + 1
+            )
+        return distance_matrix
 
 
 def main():
     track = Track('track.png')
-    racer_game = RacerGame(track)
-    racer_game.setup()
+    RacerGame(track, 10)
     arcade.run()
 
 
