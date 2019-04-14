@@ -2,6 +2,7 @@ import arcade
 import math
 from PIL import Image
 import numpy as np
+import bresenham
 
 
 class Car(object):
@@ -17,9 +18,13 @@ class Car(object):
         
         self.acceleration_command = 0
         self.rotation_command = 0
+
+        self.sensors = [-30, 0, 30]
+        self.sensory_input = [-1 for _ in self.sensors]
             
     def draw(self, scale):
         self._draw_car(scale)
+        self._draw_sensors(scale)
             
     def _draw_car(self, scale):
         scaled_x = self.x * scale
@@ -32,32 +37,59 @@ class Car(object):
             arcade.color.WHITE,
             2
         )
-        
-        line_target = self._step(5)
-        arcade.draw_line(
-            scaled_x,
-            scaled_y,
-            scaled_x + line_target[0],
-            scaled_y + line_target[1],
-            arcade.color.WHITE,
-            3
-        )
+
+    def _draw_sensors(self, scale):
+        scaled_x = self.x * scale
+        scaled_y = self.y * scale
+
+        for s in self.sensors:
+            line_target = self._step(3 * scale, rotation_offset=s)
+            arcade.draw_line(
+                scaled_x,
+                scaled_y,
+                scaled_x + line_target[0],
+                scaled_y + line_target[1],
+                arcade.color.WHITE,
+                3
+            )
 
     def move(self, delta_time):
         self.speed += self.acceleration_command * self.acceleration * delta_time
-        self.rotation += self.rotation_command * self.rotation_speed * delta_time
+        self.speed = max(self.speed, 0)
+
         # forces rotation to be in range [0, 360]
+        self.rotation += self.rotation_command * self.rotation_speed * delta_time
         self.rotation = (self.rotation + 360) % 360
         
         movement = self._step(self.speed)
         self.x += movement[0]
         self.y += movement[1]
-        
-    def _step(self, distance):
-        rotation_rad = math.radians(-self.rotation + 90)
+
+    def _step(self, distance, rotation_offset=0):
+        rotation_rad = math.radians(-(self.rotation + rotation_offset) + 90)
         x = math.cos(rotation_rad) * distance
         y = math.sin(rotation_rad) * distance
         return x, y
+
+    def sense(self, track, distance):
+        sensory_input = []
+        for s in self.sensors:
+            x2, y2 = self._step(distance, rotation_offset=s)
+            pixel_x1 = int(round(self.x))
+            pixel_x2 = int(round(self.x + x2))
+            pixel_y1 = int(round(self.y))
+            pixel_y2 = int(round(self.y + y2))
+            line_of_sight = bresenham.get_line(
+                (pixel_x1, pixel_y1),
+                (pixel_x2, pixel_y2)
+            )
+            for i, pixel in enumerate(line_of_sight):
+                if track.boundaries[pixel]:
+                    sensory_input.append(i)
+                    break
+            else:
+                sensory_input.append(-1)
+        self.sensory_input = sensory_input
         
 
 class RacerGame(arcade.Window):
@@ -97,6 +129,8 @@ class RacerGame(arcade.Window):
             self.player_0.y
         )
 
+        self.player_0.sense(self.track, 3)
+
     def on_key_press(self, key, modifiers):
         if key == arcade.key.UP:
             self.player_0.acceleration_command = 1
@@ -121,6 +155,7 @@ class RacerGame(arcade.Window):
             "x: {x}\n" \
             "y: {y}\n" \
             "score: {score}\n" \
+            "sense: {sense}\n" \
             "fps: {fps}"
 
         text = text_format.format(
@@ -131,7 +166,8 @@ class RacerGame(arcade.Window):
             collision=self.collision,
             x=self.player_0.x,
             y=self.player_0.y,
-            score=self.track.get_distance(self.player_0.x, self.player_0.y)
+            score=self.track.get_distance(self.player_0.x, self.player_0.y),
+            sense=self.player_0.sensory_input
         )
         arcade.draw_text(text, 0, 0, arcade.color.WHITE, 12)
 
