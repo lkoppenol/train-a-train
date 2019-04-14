@@ -13,7 +13,7 @@ class Car(object):
         self.rotation = 0
         
         self.acceleration = 5
-        self.rotation_speed = 50
+        self.rotation_speed = 180
         
         self.acceleration_command = 0
         self.rotation_command = 0
@@ -43,7 +43,8 @@ class Car(object):
     def move(self, delta_time):
         self.speed += self.acceleration_command * self.acceleration * delta_time
         self.rotation += self.rotation_command * self.rotation_speed * delta_time
-        self.rotation = (self.rotation + 360) % 360 # forces rotation to be in range [0, 360]
+        # forces rotation to be in range [0, 360]
+        self.rotation = (self.rotation + 360) % 360
         
         movement = self._step(self.speed)
         self.x += movement[0]
@@ -62,9 +63,9 @@ class RacerGame(arcade.Window):
         
         arcade.set_background_color(arcade.color.WHITE)
         self.fps = 0
-        self.background = 0
-        self.borders = track.boundries
-        self.botsing = 0
+        self.background = None
+        self.boundaries = track.boundaries
+        self.collision = 0
 
     def setup(self):
         self.player_0 = Car(125, 125)
@@ -86,11 +87,11 @@ class RacerGame(arcade.Window):
     def update(self, delta_time):
         self.player_0.move(delta_time)
         self.fps = 1 / delta_time
-        if self.borders[int(self.player_0.x), int(self.player_0.y)] > 125:
-            self.botsing = self.borders[int(self.player_0.x), int(self.player_0.y)]
-        else:
-            self.botsing = 0
-        
+        self.check_collision()
+
+    def check_collision(self):
+        self.collision = self.boundaries[int(self.player_0.x), int(self.player_0.y)]
+
     def on_key_press(self, key, modifiers):
         if key == arcade.key.UP:
             self.player_0.acceleration_command = 1
@@ -109,45 +110,57 @@ class RacerGame(arcade.Window):
  
     def _draw_debug(self):
         text_format = "speed: {speed}\n" \
-        "movement: {movement}\n" \
-        "rotation: {rotation}\n" \
-        "botsing: {botsing}\n" \
-        "x: {x}\n" \
-        "y: {y}\n" \
-        "fps: {fps}" 
-        
-    
+            "movement: {movement}\n" \
+            "rotation: {rotation}\n" \
+            "collision: {collision}\n" \
+            "x: {x}\n" \
+            "y: {y}\n" \
+            "fps: {fps}"
+
         text = text_format.format(
             speed=self.player_0.speed,
             movement=self.player_0.acceleration_command,
             fps=self.fps,
             rotation=self.player_0.rotation,
-            botsing=self.botsing,
+            collision=self.collision,
             x=self.player_0.x,
             y=self.player_0.y
         )
         arcade.draw_text(text, 0, 0, arcade.color.WHITE, 12)
-    
+
+
 class Track(object):
-    def __init__(self):
-        track_img = Image \
-            .open('track.png') \
-            .convert('RGB')
+    def __init__(self, path):
+        track_img = Image.open(path)
         self.width = track_img.width
         self.height = track_img.height
-        
-        raw_data = np.asarray(track_img)
+        self.boundaries = self.parse_track(track_img)
+
+    @staticmethod
+    def parse_track(track_img):
+        rgb_img = track_img.convert('RGB')
+        raw_data = np.asarray(rgb_img)
+
+        # flip x and y dimensions
         transposed_data = np.transpose(raw_data, (1, 0, 2))
-        flipped_data = np.flip(transposed_data, 1) # flip Y axis
-        self.boundries = flipped_data[:, :, 0] # red channel is boundry
-        print(self.boundries.shape)
-        
+
+        # flip Y axis
+        flipped_data = np.flip(transposed_data, 1)
+
+        # red channel is boundry
+        red_channel = flipped_data[:, :, 0]
+
+        # boolean borders
+        boundaries = red_channel >= 128
+        return boundaries
+
 
 def main():
-    track = Track()
+    track = Track('track.png')
     racer_game = RacerGame(track)
     racer_game.setup()
     arcade.run()
-        
+
+
 if __name__ == "__main__":
     main()
