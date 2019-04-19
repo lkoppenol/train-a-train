@@ -5,7 +5,7 @@ import arcade
 
 class GameEngine(arcade.Window):
     def __init__(self, track, scale, players):
-        super().__init__(track.width * scale, track.height * scale)
+        super().__init__(int(track.width / 0.3), int(track.height / 0.3))
 
         self.track = track
         self.human_race = False
@@ -16,10 +16,13 @@ class GameEngine(arcade.Window):
                 self.human_race = True
         self.players = players
 
-        self.background = arcade.load_texture(track.path)
+        self.background = arcade.load_texture('track_bg.png')
         self.fps = 0
         self.scale = scale
         self.score = dict()
+        self.clock = 0
+
+        self.game_status = 0
 
     def on_draw(self):
         arcade.start_render()
@@ -32,16 +35,18 @@ class GameEngine(arcade.Window):
         )
 
         for player in self.players:
-            self._draw_car(player)
             self._draw_sensors(player)
+            self._draw_car(player)
 
         self._draw_debug()
 
     def update(self, delta_time):
+        self.clock += delta_time
+
         for i, player in enumerate(self.players):
             if player.alive:
                 # Sense
-                player.sense(self.track, 3)
+                player.sense(self.track)
 
                 # Plan
                 player.plan()
@@ -59,14 +64,18 @@ class GameEngine(arcade.Window):
 
                 if player.collision or player.score == 1:
                     player.alive = False
-                    self.score[i] = player.score
-                    print("Player ended with score {}".format(player.score))
+                    self.score[i] = [player.score, self.clock]
 
         for player in self.players:
             if player.alive:
                 break
         else:
             arcade.close_window()
+            self.game_status = 1
+
+        if self.clock > 10:
+            arcade.close_window()
+            self.game_status = 1
 
         self.fps = 1 / delta_time
 
@@ -100,19 +109,29 @@ class GameEngine(arcade.Window):
             2
         )
 
+        sprite = arcade.Sprite("car.png", center_x=scaled_x, center_y=scaled_y, scale=0.1)
+        sprite.angle = -player.rotation + 90
+        sprite.draw()
+
     def _draw_sensors(self, player):
         scaled_x = player.x * self.scale
         scaled_y = player.y * self.scale
 
-        for s in player.sensors:
-            line_target = player.step(3 * self.scale, rotation_offset=s)
+        for i, s in enumerate(player.sensors):
+            if player.sensory_input[i] == -1:
+                distance = player.sensor_depth
+                color = arcade.color.GREEN
+            else:
+                distance = player.sensory_input[i]
+                color = arcade.color.WHITE
+            line_target = player.step(distance * self.scale, rotation_offset=s)
             arcade.draw_line(
                 scaled_x,
                 scaled_y,
                 scaled_x + line_target[0],
                 scaled_y + line_target[1],
-                arcade.color.WHITE,
-                3
+                color,
+                1
             )
 
     def _draw_debug(self):

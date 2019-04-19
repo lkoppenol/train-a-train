@@ -17,6 +17,7 @@ class Player(object):
 
         self.sensors = [-30, 0, 30]
         self.sensory_input = [-1 for _ in self.sensors]
+        self.sensor_depth = 50
 
         self.score = 0
         self.collision = False
@@ -43,10 +44,10 @@ class Player(object):
         y = math.sin(rotation_rad) * distance
         return x, y
 
-    def sense(self, track, distance):
+    def sense(self, track):
         sensory_input = []
         for s in self.sensors:
-            x2, y2 = self.step(distance, rotation_offset=s)
+            x2, y2 = self.step(self.sensor_depth, rotation_offset=s)
             pixel_x1 = int(round(self.x))
             pixel_x2 = int(round(self.x + x2))
             pixel_y1 = int(round(self.y))
