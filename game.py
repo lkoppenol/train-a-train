@@ -5,11 +5,8 @@ import numpy as np
 import bresenham
 
 
-class Car(object):
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        
+class Player(object):
+    def __init__(self):
         self.speed = 0
         self.rotation = 0
         
@@ -21,39 +18,11 @@ class Car(object):
 
         self.sensors = [-30, 0, 30]
         self.sensory_input = [-1 for _ in self.sensors]
-            
-    def draw(self, scale):
-        self._draw_car(scale)
-        self._draw_sensors(scale)
-            
-    def _draw_car(self, scale):
-        scaled_x = self.x * scale
-        scaled_y = self.y * scale
 
-        arcade.draw_circle_outline(
-            scaled_x,
-            scaled_y,
-            2,
-            arcade.color.WHITE,
-            2
-        )
+        self.score = 0
+        self.collision = False
 
-    def _draw_sensors(self, scale):
-        scaled_x = self.x * scale
-        scaled_y = self.y * scale
-
-        for s in self.sensors:
-            line_target = self._step(3 * scale, rotation_offset=s)
-            arcade.draw_line(
-                scaled_x,
-                scaled_y,
-                scaled_x + line_target[0],
-                scaled_y + line_target[1],
-                arcade.color.WHITE,
-                3
-            )
-
-    def move(self, delta_time):
+    def act(self, delta_time):
         self.speed += self.acceleration_command * self.acceleration * delta_time
         self.speed = max(self.speed, 0)
 
@@ -61,11 +30,13 @@ class Car(object):
         self.rotation += self.rotation_command * self.rotation_speed * delta_time
         self.rotation = (self.rotation + 360) % 360
         
-        movement = self._step(self.speed)
-        self.x += movement[0]
-        self.y += movement[1]
+        movement = self.step(self.speed)
+        self.change_position(movement)
 
-    def _step(self, distance, rotation_offset=0):
+    def plan(self):
+        pass
+
+    def step(self, distance, rotation_offset=0):
         rotation_rad = math.radians(-(self.rotation + rotation_offset) + 90)
         x = math.cos(rotation_rad) * distance
         y = math.sin(rotation_rad) * distance
@@ -74,7 +45,7 @@ class Car(object):
     def sense(self, track, distance):
         sensory_input = []
         for s in self.sensors:
-            x2, y2 = self._step(distance, rotation_offset=s)
+            x2, y2 = self.step(distance, rotation_offset=s)
             pixel_x1 = int(round(self.x))
             pixel_x2 = int(round(self.x + x2))
             pixel_y1 = int(round(self.y))
@@ -90,17 +61,28 @@ class Car(object):
             else:
                 sensory_input.append(-1)
         self.sensory_input = sensory_input
+
+    def set_position(self, coordinate):
+        self.x = coordinate[0]
+        self.y = coordinate[1]
+
+    def change_position(self, delta_coordinate):
+        self.x += delta_coordinate[0]
+        self.y += delta_coordinate[1]
         
 
-class RacerGame(arcade.Window):
-    def __init__(self, track, scale):
+class GameEngine(arcade.Window):
+    def __init__(self, track, scale, players):
         super().__init__(track.width * scale, track.height * scale)
-        
-        self.background = arcade.load_texture('track.png')
-        self.fps = 0
+
         self.track = track
-        self.collision = False
-        self.player_0 = Car(track.start[0], track.start[1])
+
+        for player in players:
+            player.set_position(track.start)
+        self.players = players
+
+        self.background = arcade.load_texture(track.path)
+        self.fps = 0
         self.scale = scale
 
     def on_draw(self):
@@ -113,61 +95,85 @@ class RacerGame(arcade.Window):
             self.background
         )
 
-        self.player_0.draw(self.scale)
+        for player in self.players:
+            self._draw_car(player)
+            self._draw_sensors(player)
+
         self._draw_debug()
-        
+
     def update(self, delta_time):
-        self.player_0.move(delta_time)
+        for player in self.players:
+            # Sense
+            player.sense(self.track, 3)
+
+            # Plan
+            player.plan()
+
+            # Act
+            player.act(delta_time)
+
+            # Resolve
+            player.collision = self.track.check_collision(player)
+
+            score = self.track.get_distance(player)
+
+            if score > 0:
+                player.score = score
+
+            if player.collision or player.score == 1:
+                self.score = score
+                arcade.close_window()
+
         self.fps = 1 / delta_time
-        self.collision = self.track.check_collision(
-            self.player_0.x,
-            self.player_0.y
-        )
-
-        self.score = self.track.get_distance(
-            self.player_0.x,
-            self.player_0.y
-        )
-
-        self.player_0.sense(self.track, 3)
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.UP:
-            self.player_0.acceleration_command = 1
+            self.players[0].acceleration_command = 1
         elif key == arcade.key.DOWN:
-            self.player_0.acceleration_command = -1
+            self.players[0].acceleration_command = -1
         elif key == arcade.key.LEFT:
-            self.player_0.rotation_command = -1
+            self.players[0].rotation_command = -1
         elif key == arcade.key.RIGHT:
-            self.player_0.rotation_command = 1
+            self.players[0].rotation_command = 1
 
     def on_key_release(self, key, modifiers):
         if key == arcade.key.UP or key == arcade.key.DOWN:
-            self.player_0.acceleration_command = 0
+            self.players[0].acceleration_command = 0
         elif key == arcade.key.LEFT or key == arcade.key.RIGHT:
-            self.player_0.rotation_command = 0
+            self.players[0].rotation_command = 0
+
+    def _draw_car(self, player):
+        scaled_x = player.x * self.scale
+        scaled_y = player.y * self.scale
+
+        arcade.draw_circle_outline(
+            scaled_x,
+            scaled_y,
+            2,
+            arcade.color.WHITE,
+            2
+        )
+
+    def _draw_sensors(self, player):
+        scaled_x = player.x * self.scale
+        scaled_y = player.y * self.scale
+
+        for s in player.sensors:
+            line_target = player.step(3 * self.scale, rotation_offset=s)
+            arcade.draw_line(
+                scaled_x,
+                scaled_y,
+                scaled_x + line_target[0],
+                scaled_y + line_target[1],
+                arcade.color.WHITE,
+                3
+            )
  
     def _draw_debug(self):
-        text_format = "speed: {speed}\n" \
-            "movement: {movement}\n" \
-            "rotation: {rotation}\n" \
-            "collision: {collision}\n" \
-            "x: {x}\n" \
-            "y: {y}\n" \
-            "score: {score}\n" \
-            "sense: {sense}\n" \
-            "fps: {fps}"
+        text_format = "fps: {fps:.0f}"
 
         text = text_format.format(
-            speed=self.player_0.speed,
-            movement=self.player_0.acceleration_command,
-            fps=self.fps,
-            rotation=self.player_0.rotation,
-            collision=self.collision,
-            x=self.player_0.x,
-            y=self.player_0.y,
-            score=self.track.get_distance(self.player_0.x, self.player_0.y),
-            sense=self.player_0.sensory_input
+            fps=self.fps
         )
         arcade.draw_text(text, 0, 0, arcade.color.WHITE, 12)
 
@@ -175,6 +181,7 @@ class RacerGame(arcade.Window):
 class Track(object):
     def __init__(self, path):
         track_img = Image.open(path)
+        self.path = path
         self.width = track_img.width
         self.height = track_img.height
         self.boundaries, self.finish, self.start = self.parse_track(track_img)
@@ -205,15 +212,15 @@ class Track(object):
 
         return boundaries, finish, start
 
-    def check_collision(self, x, y):
-        pixel_x = int(round(x))
-        pixel_y = int(round(y))
+    def check_collision(self, player):
+        pixel_x = int(round(player.x))
+        pixel_y = int(round(player.y))
         collision = self.boundaries[pixel_x, pixel_y]
         return collision
 
-    def get_distance(self, x, y):
-        pixel_x = int(round(x))
-        pixel_y = int(round(y))
+    def get_distance(self, player):
+        pixel_x = int(round(player.x))
+        pixel_y = int(round(player.y))
         distance = self.distance_matrix[pixel_x, pixel_y]
         return distance
 
@@ -257,9 +264,15 @@ class Track(object):
 
 
 def main():
+    gui = True
+
     track = Track('track.png')
-    RacerGame(track, 10)
+
+    g = GameEngine(track, 10, [Player()])
     arcade.run()
+    print(g.score)
+
+
 
 
 if __name__ == "__main__":
