@@ -1,8 +1,25 @@
+"""
+@Source http://www.roguebasin.com/index.php?title=Bresenham%27s_Line_Algorithm
+
+Algorithm to get a list of pixels associated with a line from pixel a to pixel b. Not all pixels are returned, but
+rather 1 pixel per row for flat lines and 1 pixel per column for steep lines.
+
+For example
+_a__   _x__
+____ > __x_
+__b_   __x_
+
+and
+____   ____
+a___ > xx__
+___b   __xx
+
+"""
+
+
 def get_line(start, end):
     """
     Bresenham's Line Algorithm
-
-    Taken from http://www.roguebasin.com/index.php?title=Bresenham%27s_Line_Algorithm
 
     Produces a list of tuples from start and end
     > points1 = get_line((0, 0), (3, 4))
