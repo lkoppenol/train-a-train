@@ -14,18 +14,23 @@ arcade.run()
 
 from PIL import Image
 import numpy as np
-import arcade
 import math
 import bresenham
+import pygame
 
 
-class Engine(arcade.Window):
+class Engine(object):
     """
     The game engine, consiting of 2 seperate loops. A GUI loop which triggers Engine.on_draw(), and the game loop which
     triggers Engine.update().
     """
+    RUNNING = 0
+    FINISHED = 1
+
     def __init__(self, track, scale, players):
-        super().__init__(int(track.width / 0.3), int(track.height / 0.3))
+
+        pygame.init()
+        self.screen = pygame.display.set_mode((int(track.width / 0.3), int(track.height / 0.3)))
 
         # TODO: setup function
         self.track = track
@@ -33,19 +38,21 @@ class Engine(arcade.Window):
         for player in players:
             player.set_position(track.start)
 
-        self.background = arcade.load_texture('track_bg.png')
+        self.background = pygame.image.load('track_bg.png')
+        self.train = pygame.transform.scale(pygame.image.load('train.png'), (50, 30))
+
         self.fps = 0
         self.scale = scale
         self.score = dict()
         self.clock = 0
 
-        self.game_status = 0
+        self.game_status = Engine.RUNNING
         
         self.keys = {
-            arcade.key.UP: False,
-            arcade.key.DOWN: False,
-            arcade.key.LEFT: False,
-            arcade.key.RIGHT: False
+            pygame.K_LEFT: False,
+            pygame.K_UP: False,
+            pygame.K_DOWN: False,
+            pygame.K_RIGHT: False
         }
 
         self.ACCELERATION = 5
@@ -58,25 +65,18 @@ class Engine(arcade.Window):
         Draws the background, player and possibly debug information
         :return: Nothing
         """
-        arcade.start_render()
-
         # Draw background
-        arcade.draw_texture_rectangle(
-            self.width // 2,
-            self.height // 2,
-            self.width,
-            self.height,
-            self.background
-        )
+        self.screen.blit(self.background, (0, 0))
 
         # Draw players
         for player in self.players:
             self._draw_train(player)
             for sensor in player.sensors:
                 self._draw_sensor(player, sensor)
-
-        # Draw other
-        self._draw_debug()
+        #
+        # # Draw other
+        # self._draw_debug()
+        pygame.display.update()
 
     def update(self, delta_time):
         """
@@ -86,11 +86,7 @@ class Engine(arcade.Window):
         :param delta_time: the time passed since previous turn in seconds.
         :return: Nothing
         """
-        # TODO: fix delta_time for optimal gaming experience
-        delta_time = 0.01
-
-        # Total game time
-        self.clock += delta_time
+        self.handle_keys()
 
         # Perform the sense-plan-act-resolve loop. The resolve can be per player as there is no possible interaction.
         for player in self.players:
@@ -106,15 +102,11 @@ class Engine(arcade.Window):
             if player.alive:
                 break
         else:
-            arcade.close_window()
-            self.game_status = 1
+            pygame.quit()
+            self.game_status = Engine.FINISHED
 
-        # Check if game time is run out
-        if self.clock > self.GAME_LENGTH:
-            arcade.close_window()
-            self.game_status = 1
-
-        self.fps = 1 / delta_time
+    def is_running(self):
+        return self.game_status == Engine.RUNNING
 
     def act(self, player, acceleration_command, rotation_command, delta_time):
         """
@@ -153,29 +145,21 @@ class Engine(arcade.Window):
             player.alive = False
             # TODO: Handle score
 
-    def on_key_press(self, key, modifiers):
+    def handle_keys(self):
         """
-        Called by arcade when a key is pressed. The active arrow keys are stored and passed to Player.sense() in the
-        game loop.
+        Handles all key events that have occured since last loop The active arrow keys are stored and passed to
+        Player.sense() in the game loop.
 
-        :param key: id of the key that is pressed arcade.key.STATIC
-        :param modifiers: not used
         :return: nothing
         """
-        if key in self.keys.keys():
-            self.keys[key] = True
-
-    def on_key_release(self, key, modifiers):
-        """
-        Called by arcade when a key is released. The active arrow keys are stored and passed to Player.sense() in the
-        game loop.
-
-        :param key: id of the key that is pressed arcade.key.STATIC
-        :param modifiers: not used
-        :return: nothing
-        """
-        if key in self.keys.keys():
-            self.keys[key] = False
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key in self.keys.keys():
+                    self.keys[event.key] = True
+            if event.type == pygame.KEYUP:
+                if event.key in self.keys.keys():
+                    self.keys[event.key] = False
 
     def _draw_train(self, player):
         """
@@ -185,18 +169,8 @@ class Engine(arcade.Window):
         :return: nothing
         """
         scaled_x, scaled_y = player.get_position(scale=self.scale)
-
-        arcade.draw_circle_outline(
-            scaled_x,
-            scaled_y,
-            2,
-            arcade.color.WHITE,
-            2
-        )
-
-        sprite = arcade.Sprite("car.png", center_x=scaled_x, center_y=scaled_y, scale=0.1)
-        sprite.angle = -player.rotation + 90
-        sprite.draw()
+        sprite = pygame.transform.rotate(self.train, -player.rotation + 90)
+        self._draw_sprite(sprite, scaled_x, scaled_y)
 
     def _draw_sensor(self, player, sensor):
         """
@@ -209,10 +183,10 @@ class Engine(arcade.Window):
         # Determine color and length based on percept value.
         if sensor.percept is None:
             distance = sensor.depth
-            color = arcade.color.GREEN
+            color = (0, 255, 0)
         else:
             distance = sensor.percept
-            color = arcade.color.WHITE
+            color = (255, 255, 255)
 
         # Set target
         target = self.track.translate(
@@ -222,29 +196,23 @@ class Engine(arcade.Window):
         )
 
         # Scale and draw
-        scaled_x_1, scaled_y_1 = player.get_position(scale=self.scale)
-        scaled_x_2, scaled_y_2 = [p * self.scale for p in target]
-        arcade.draw_line(
-            scaled_x_1,
-            scaled_y_1,
-            scaled_x_2,
-            scaled_y_2,
+        scaled_origin = player.get_position(scale=self.scale)
+        scaled_target = [p * self.scale for p in target]
+        pygame.draw.line(
+            self.screen,
             color,
-            1
+            scaled_origin,
+            scaled_target
         )
 
-    def _draw_debug(self):
-        """
-        Draw debug information on the screen.
-        :return: nothing
-        """
-        #TODO: show more information
-        text_format = "fps: {fps:.0f}"
+    def _draw_sprite(self, sprite, x, y):
+        width = sprite.get_width()
+        height = sprite.get_height()
 
-        text = text_format.format(
-            fps=self.fps
-        )
-        arcade.draw_text(text, 0, 0, arcade.color.WHITE, 12)
+        corner_x = x - 0.5 * width
+        corner_y = y - 0.5 * height
+
+        self.screen.blit(sprite, (corner_x, corner_y))
 
 
 class Environment(object):
@@ -283,18 +251,17 @@ class Environment(object):
 
         # transpose x and y and flip y to match the arcade coordinates
         transposed_data = np.transpose(raw_data, (1, 0, 2))
-        flipped_data = np.flip(transposed_data, 1)
 
         # red channel is boundary (walls)
-        red_channel = flipped_data[:, :, 0]
+        red_channel = transposed_data[:, :, 0]
         boundaries = red_channel >= 128
 
         # blue channel is finish
-        blue_channel = flipped_data[:, :, 2]
+        blue_channel = transposed_data[:, :, 2]
         finish = np.transpose(np.nonzero(blue_channel))
 
         # green channel is starting point
-        green_channel = flipped_data[:, :, 1]
+        green_channel = transposed_data[:, :, 1]
         start = np.transpose(np.nonzero(green_channel))[0]
 
         return boundaries, finish, start
@@ -403,7 +370,7 @@ class Environment(object):
         :param pixel: whether to round to integer pixel coorindates
         :return: new position (x, y)
         """
-        rotation_rad = math.radians(-rotation + 90)
+        rotation_rad = math.radians(rotation - 90)
         d_x = math.cos(rotation_rad) * distance
         d_y = math.sin(rotation_rad) * distance
 
