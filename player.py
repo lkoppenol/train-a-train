@@ -55,7 +55,6 @@ class HumanPlayer(Player):
         # use boolean as int trick to get -1, 0 or 1 from keys (both keys => 0)
         acceleration_command = percepts[pygame.K_UP] - percepts[pygame.K_DOWN]
         rotation_command = percepts[pygame.K_RIGHT] - percepts[pygame.K_LEFT]
-
         return acceleration_command, rotation_command
 
 

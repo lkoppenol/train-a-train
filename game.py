@@ -12,11 +12,36 @@ game_engine = Engine(track, 1 / 0.3, players)
 arcade.run()
 """
 
+import time
+import functools
+import math
+
 from PIL import Image
 import numpy as np
-import math
-import bresenham
+from loguru import logger
 import pygame
+
+import bresenham
+
+
+def dropped_frame_checker(seconds_per_frame):
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            planned_next_frame = int(time.time() / seconds_per_frame)
+            f(*args, **kwargs)
+            actual_next_frame = int(time.time() / seconds_per_frame)
+            if planned_next_frame != actual_next_frame:
+                frames_skipped = actual_next_frame - planned_next_frame
+                logger.warning(f"game thread skipped {frames_skipped} frame(s)")
+        return wrapper
+    return decorator
+
+
+class Drawables(object):
+    background = pygame.image.load('track_bg.png')
+    track = pygame.image.load('track.png')
+    train = pygame.transform.scale(pygame.image.load('train.png'), (78, 21))
 
 
 class Engine(object):
@@ -26,89 +51,108 @@ class Engine(object):
     """
     RUNNING = 0
     FINISHED = 1
+    SECONDS_PER_FRAME = 1/30
+    SCALE = 1/0.3
+    ACCELERATION = 5
+    ROTATION_SPEED = 180
 
-    def __init__(self, track, scale, players):
-
+    def __init__(self, track, players):
         pygame.init()
-        self.screen = pygame.display.set_mode((int(track.width / 0.3), int(track.height / 0.3)))
 
-        # TODO: setup function
+        self.game_status = Engine.RUNNING
+        self.keys = self._setup_keys()
         self.track = track
         self.players = players
         for player in players:
             player.set_position(track.start)
 
-        self.background = pygame.image.load('track_bg.png')
-        self.train = pygame.transform.scale(pygame.image.load('train.png'), (50, 30))
+        self.screen = self._setup_screen()
 
-        self.fps = 0
-        self.scale = scale
-        self.score = dict()
-        self.clock = 0
 
-        self.game_status = Engine.RUNNING
-        
-        self.keys = {
+    def play(self):
+        while self.is_running():
+            self._turn()
+            time_to_next_frame = self.SECONDS_PER_FRAME - time.time() % self.SECONDS_PER_FRAME
+            time.sleep(time_to_next_frame)
+
+    def is_running(self):
+        return self.game_status == Engine.RUNNING
+
+    def _setup_screen(self):
+        size = (
+            int(self.track.width * Engine.SCALE),
+            int(self.track.height * Engine.SCALE)
+        )
+        screen = pygame.display.set_mode(size)
+        return screen
+
+    @staticmethod
+    def _setup_keys():
+        keys = {
             pygame.K_LEFT: False,
             pygame.K_UP: False,
             pygame.K_DOWN: False,
             pygame.K_RIGHT: False
         }
+        return keys
 
-        self.ACCELERATION = 5
-        self.ROTATION_SPEED = 180
-        self.GAME_LENGTH = 10
+    @dropped_frame_checker(SECONDS_PER_FRAME)
+    def _turn(self):
+        """
+        A game consists of a sense-plan-act-resolve loop for every player, followed by a check if game is over yet.
 
-    def on_draw(self):
+        :param turn_length: the time passed since previous turn in seconds.
+        :return: Nothing
+        """
+        self._handle_pygame_events()
+        for player in self.players:
+            self._player_turn(player)
+
+        self._draw()
+
+        if self._is_game_over():
+            self._end_game()
+
+    def _player_turn(self, player):
+        # Perform the sense-plan-act-resolve loop. The resolve can be per player as there is no possible interaction.
+        if player.alive:
+            # TODO: pass speed and rotations as input
+            percepts = player.sense(self.track, self.keys)
+            acceleration_command, rotation_command = player.plan(percepts)
+            movement = self._act(player, acceleration_command, rotation_command, self.SECONDS_PER_FRAME)
+            self._resolve(player, movement)
+
+    def _is_game_over(self):
+        # Check if there is a player that is alive
+        for player in self.players:
+            if player.alive:
+                return False
+        else:
+            return True
+
+    def _end_game(self):
+        pygame.quit()
+        self.game_status = Engine.FINISHED
+
+    def _draw(self):
         """
         Called by arcade for every frame.
         Draws the background, player and possibly debug information
         :return: Nothing
         """
         # Draw background
-        self.screen.blit(self.background, (0, 0))
+        self.screen.blit(Drawables.background, (0, 0))
+        # self.screen.fill((0, 0, 0))
 
         # Draw players
         for player in self.players:
             self._draw_train(player)
             for sensor in player.sensors:
                 self._draw_sensor(player, sensor)
-        #
-        # # Draw other
-        # self._draw_debug()
+
         pygame.display.update()
 
-    def update(self, delta_time):
-        """
-        Called by the arcade library or headless mode. Equals 1 game turn.
-        A game consists of a sense-plan-act-resolve loop for every player, followed by a check if game is over yet.
-
-        :param delta_time: the time passed since previous turn in seconds.
-        :return: Nothing
-        """
-        self.handle_keys()
-
-        # Perform the sense-plan-act-resolve loop. The resolve can be per player as there is no possible interaction.
-        for player in self.players:
-            if player.alive:
-                # TODO: pass speed and rotations as input
-                percepts = player.sense(self.track, self.keys)
-                acceleration_command, rotation_command = player.plan(percepts)
-                movement = self.act(player, acceleration_command, rotation_command, delta_time)
-                self.resolve(player, movement)
-
-        # Check if there is a player that is alive
-        for player in self.players:
-            if player.alive:
-                break
-        else:
-            pygame.quit()
-            self.game_status = Engine.FINISHED
-
-    def is_running(self):
-        return self.game_status == Engine.RUNNING
-
-    def act(self, player, acceleration_command, rotation_command, delta_time):
+    def _act(self, player, acceleration_command, rotation_command, delta_time):
         """
         Based on the selected actions of the player, the player state is altered
         :param player: a child class of Player
@@ -127,7 +171,7 @@ class Engine(object):
         destination = self.track.translate(player.position, player.speed, player.rotation)
         return destination
 
-    def resolve(self, player, destination):
+    def _resolve(self, player, destination):
         """
         Alter the position of the player and check if this causes a finish or collission
         :param player: a child class of Player
@@ -145,7 +189,7 @@ class Engine(object):
             player.alive = False
             # TODO: Handle score
 
-    def handle_keys(self):
+    def _handle_pygame_events(self):
         """
         Handles all key events that have occured since last loop The active arrow keys are stored and passed to
         Player.sense() in the game loop.
@@ -154,12 +198,13 @@ class Engine(object):
         """
         events = pygame.event.get()
         for event in events:
-            if event.type == pygame.KEYDOWN:
-                if event.key in self.keys.keys():
-                    self.keys[event.key] = True
-            if event.type == pygame.KEYUP:
-                if event.key in self.keys.keys():
-                    self.keys[event.key] = False
+            if event.type in [pygame.KEYDOWN, pygame.KEYUP]:
+                self._handle_key_event(event)
+
+    def _handle_key_event(self, key_event):
+        if key_event.key in [pygame.K_LEFT, pygame.K_UP, pygame.K_DOWN, pygame.K_RIGHT]:
+            key_active = key_event.type == pygame.KEYDOWN
+            self.keys[key_event.key] = key_active
 
     def _draw_train(self, player):
         """
@@ -168,8 +213,8 @@ class Engine(object):
         :param player: child class of Player
         :return: nothing
         """
-        scaled_x, scaled_y = player.get_position(scale=self.scale)
-        sprite = pygame.transform.rotate(self.train, -player.rotation + 90)
+        scaled_x, scaled_y = player.get_position(scale=self.SCALE)
+        sprite = pygame.transform.rotate(Drawables.train, -player.rotation + 90)
         self._draw_sprite(sprite, scaled_x, scaled_y)
 
     def _draw_sensor(self, player, sensor):
@@ -196,8 +241,8 @@ class Engine(object):
         )
 
         # Scale and draw
-        scaled_origin = player.get_position(scale=self.scale)
-        scaled_target = [p * self.scale for p in target]
+        scaled_origin = player.get_position(scale=self.SCALE)
+        scaled_target = [p * self.SCALE for p in target]
         pygame.draw.line(
             self.screen,
             color,
@@ -393,3 +438,5 @@ class Environment(object):
             int(round(coordinate[1]))
         )
         return rounded_coordinate
+
+
