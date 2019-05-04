@@ -15,11 +15,13 @@ arcade.run()
 import time
 import functools
 import math
+import random
 
 from PIL import Image
 import numpy as np
 from loguru import logger
 import pygame
+from pygame import freetype
 
 import bresenham
 
@@ -39,9 +41,11 @@ def dropped_frame_checker(seconds_per_frame):
 
 
 class Drawables(object):
+    freetype.init()
     background = pygame.image.load('track_bg.png')
     track = pygame.image.load('track.png')
     train = pygame.image.load('train.png')
+    font = freetype.Font('roboto.ttf')
 
 
 class Engine(object):
@@ -56,18 +60,18 @@ class Engine(object):
     ACCELERATION = 5
     ROTATION_SPEED = 180
 
-    def __init__(self, track, players):
+    def __init__(self, track, player_types):
         pygame.init()
 
         self.game_status = Engine.RUNNING
         self.track = track
-        self.players = players
-        for player in players:
-            player.set_position(track.start)
 
+        self.players = self._setup_players(player_types)
         self.keys = self._setup_keys()
         self.screen = self._setup_screen()
         self.game_settings = self._setup_game_settings()
+
+        random.seed(42)
 
     def play(self):
         while self.is_running():
@@ -79,6 +83,24 @@ class Engine(object):
     def is_running(self):
         return self.game_status == Engine.RUNNING
 
+    def _init_player(self, player_class, id):
+        player = player_class()
+        player.set_position(self.track.start)
+        player.id = id
+        player.color = (
+            random.randint(100, 255),
+            random.randint(100, 255),
+            random.randint(100, 255)
+        )
+        return player
+
+    def _setup_players(self, player_types):
+        players = []
+        for i, player_type in enumerate(player_types):
+            player = self._init_player(player_type, i)
+            players.append(player)
+        return players
+
     def _setup_screen(self):
         size = (
             int(self.track.width * Engine.SCALE),
@@ -89,6 +111,7 @@ class Engine(object):
         Drawables.background = pygame.transform.scale(Drawables.background, size)
         Drawables.track = pygame.transform.scale(Drawables.track, size)
         Drawables.train = pygame.transform.scale(Drawables.train, (78, 21))
+        Drawables.font.size = Engine.SCALE * 3
 
         return screen
 
@@ -117,7 +140,6 @@ class Engine(object):
         """
         A game consists of a sense-plan-act-resolve loop for every player, followed by a check if game is over yet.
 
-        :param turn_length: the time passed since previous turn in seconds.
         :return: Nothing
         """
         self._handle_pygame_events()
@@ -164,6 +186,8 @@ class Engine(object):
             if self.game_settings['sensors']:
                 for sensor in player.sensors:
                     self._draw_sensor(player, sensor)
+
+        self._draw_score()
 
         pygame.display.update()
 
@@ -240,6 +264,28 @@ class Engine(object):
                 # TODO: toggle debug text
                 pass
 
+    def _draw_score(self):
+        # Background
+        pygame.draw.rect(
+            self.screen,
+            (0, 0, 0),
+            pygame.Rect(
+                0,
+                0,
+                self.screen.get_width() * 0.05,
+                self.screen.get_height()
+            )
+        )
+
+        for i, player in enumerate(self.players):
+            score_text = f"{player.id:03} - {player.score:03.0f}"
+            y = i * 3 * Engine.SCALE
+            Drawables.font.render_to(
+                self.screen,
+                (0, y),
+                score_text,
+                fgcolor=player.color
+            )
 
     def _draw_background(self):
         # Draw background
@@ -274,7 +320,7 @@ class Engine(object):
             scaled_target = [p * self.SCALE for p in target]
             pygame.draw.line(
                 self.screen,
-                (0, 255, 0),
+                player.color,
                 scaled_origin,
                 scaled_target,
                 5
@@ -503,5 +549,3 @@ class Environment(object):
             int(round(coordinate[1]))
         )
         return rounded_coordinate
-
-
