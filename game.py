@@ -41,7 +41,7 @@ def dropped_frame_checker(seconds_per_frame):
 class Drawables(object):
     background = pygame.image.load('track_bg.png')
     track = pygame.image.load('track.png')
-    train = pygame.transform.scale(pygame.image.load('train.png'), (78, 21))
+    train = pygame.image.load('train.png')
 
 
 class Engine(object):
@@ -60,20 +60,21 @@ class Engine(object):
         pygame.init()
 
         self.game_status = Engine.RUNNING
-        self.keys = self._setup_keys()
         self.track = track
         self.players = players
         for player in players:
             player.set_position(track.start)
 
+        self.keys = self._setup_keys()
         self.screen = self._setup_screen()
-
+        self.game_settings = self._setup_game_settings()
 
     def play(self):
         while self.is_running():
             self._turn()
-            time_to_next_frame = self.SECONDS_PER_FRAME - time.time() % self.SECONDS_PER_FRAME
-            time.sleep(time_to_next_frame)
+            if self.game_settings['fps_limiter']:
+                time_to_next_frame = self.SECONDS_PER_FRAME - time.time() % self.SECONDS_PER_FRAME
+                time.sleep(time_to_next_frame)
 
     def is_running(self):
         return self.game_status == Engine.RUNNING
@@ -84,6 +85,11 @@ class Engine(object):
             int(self.track.height * Engine.SCALE)
         )
         screen = pygame.display.set_mode(size)
+
+        Drawables.background = pygame.transform.scale(Drawables.background, size)
+        Drawables.track = pygame.transform.scale(Drawables.track, size)
+        Drawables.train = pygame.transform.scale(Drawables.train, (78, 21))
+
         return screen
 
     @staticmethod
@@ -95,6 +101,16 @@ class Engine(object):
             pygame.K_RIGHT: False
         }
         return keys
+
+    @staticmethod
+    def _setup_game_settings():
+        toggle_options = dict(
+            train=0,
+            sensors=False,
+            background=0,
+            fps_limiter=True
+        )
+        return toggle_options
 
     @dropped_frame_checker(SECONDS_PER_FRAME)
     def _turn(self):
@@ -140,15 +156,14 @@ class Engine(object):
         Draws the background, player and possibly debug information
         :return: Nothing
         """
-        # Draw background
-        self.screen.blit(Drawables.background, (0, 0))
-        # self.screen.fill((0, 0, 0))
+        self._draw_background()
 
         # Draw players
         for player in self.players:
             self._draw_train(player)
-            for sensor in player.sensors:
-                self._draw_sensor(player, sensor)
+            if self.game_settings['sensors']:
+                for sensor in player.sensors:
+                    self._draw_sensor(player, sensor)
 
         pygame.display.update()
 
@@ -205,6 +220,35 @@ class Engine(object):
         if key_event.key in [pygame.K_LEFT, pygame.K_UP, pygame.K_DOWN, pygame.K_RIGHT]:
             key_active = key_event.type == pygame.KEYDOWN
             self.keys[key_event.key] = key_active
+        elif key_event.type == pygame.KEYDOWN:
+            if key_event.key == pygame.K_1:
+                self.game_settings['train'] = (self.game_settings['train'] + 1) % 3
+                logger.debug(f"Drawing train toggled, status now {self.game_settings['train']}")
+            elif key_event.key == pygame.K_2:
+                self.game_settings['sensors'] = not self.game_settings['sensors']
+                logger.debug(f"Drawing sensors toggled, status now {self.game_settings['sensors']}")
+            elif key_event.key == pygame.K_3:
+                self.game_settings['background'] = (self.game_settings['background'] + 1) % 3
+                logger.debug(f"Drawing background toggled, status now {self.game_settings['background']}")
+            elif key_event.key == pygame.K_4:
+                self.game_settings['fps_limiter'] = not self.game_settings['fps_limiter']
+                logger.debug(f"FPS limiter toggled, status now {self.game_settings['fps_limiter']}")
+            elif key_event.key == pygame.K_5:
+                # TODO: add AI
+                pass
+            elif key_event.key == pygame.K_6:
+                # TODO: toggle debug text
+                pass
+
+
+    def _draw_background(self):
+        # Draw background
+        if self.game_settings['background'] == 0:
+            self.screen.blit(Drawables.background, (0, 0))
+        elif self.game_settings['background'] == 1:
+            self.screen.blit(Drawables.track, (0, 0))
+        elif self.game_settings['background'] == 2:
+            self.screen.fill((0, 0, 0))
 
     def _draw_train(self, player):
         """
@@ -214,8 +258,29 @@ class Engine(object):
         :return: nothing
         """
         scaled_x, scaled_y = player.get_position(scale=self.SCALE)
-        sprite = pygame.transform.rotate(Drawables.train, -player.rotation + 90)
-        self._draw_sprite(sprite, scaled_x, scaled_y)
+        if self.game_settings['train'] == 0:
+            sprite = pygame.transform.rotate(Drawables.train, -player.rotation + 90)
+            self._draw_sprite(sprite, scaled_x, scaled_y)
+        elif self.game_settings['train'] == 1:
+            # Set target
+            target = self.track.translate(
+                player.position,
+                3,
+                player.rotation
+            )
+
+            # Scale and draw
+            scaled_origin = player.get_position(scale=self.SCALE)
+            scaled_target = [p * self.SCALE for p in target]
+            pygame.draw.line(
+                self.screen,
+                (0, 255, 0),
+                scaled_origin,
+                scaled_target,
+                5
+            )
+        elif self.game_settings['train'] == 2:
+            pass
 
     def _draw_sensor(self, player, sensor):
         """
