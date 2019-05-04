@@ -71,6 +71,8 @@ class Engine(object):
         self.screen = self._setup_screen()
         self.game_settings = self._setup_game_settings()
 
+        self.action_0 = None
+
         random.seed(42)
 
     def play(self):
@@ -82,6 +84,15 @@ class Engine(object):
 
     def is_running(self):
         return self.game_status == Engine.RUNNING
+
+    def add_player(self, player_class):
+        player_id = len(self.players)
+        player = self._init_player(player_class, player_id)
+        self.players.append(player)
+        return self
+
+    def bind_action_to_0(self, action, args=[], kwargs={}):
+        self.action_0 = (action, args, kwargs)
 
     def _init_player(self, player_class, id):
         player = player_class()
@@ -258,11 +269,16 @@ class Engine(object):
                 self.game_settings['fps_limiter'] = not self.game_settings['fps_limiter']
                 logger.debug(f"FPS limiter toggled, status now {self.game_settings['fps_limiter']}")
             elif key_event.key == pygame.K_5:
-                # TODO: add AI
-                pass
-            elif key_event.key == pygame.K_6:
                 # TODO: toggle debug text
                 pass
+            elif key_event.key == pygame.K_0:
+                if self.action_0:
+                    action = self.action_0[0]
+                    args = self.action_0[1]
+                    kwargs = self.action_0[2]
+                    action(*args, **kwargs)
+                else:
+                    logger.warning("Pls bind action to '0' with game_engine.bind_action_to_0(action, args, kwargs)")
 
     def _draw_score(self):
         # Background
