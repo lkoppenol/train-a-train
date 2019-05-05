@@ -66,7 +66,9 @@ class Engine(object):
         self.game_status = Engine.RUNNING
         self.track = track
 
-        self.players = self._setup_players(player_types)
+        self.players = []
+        self._setup_players(player_types)
+
         self.keys = self._setup_keys()
         self.screen = self._setup_screen()
         self.game_settings = self._setup_game_settings()
@@ -88,17 +90,41 @@ class Engine(object):
     def is_running(self):
         return self.game_status == Engine.RUNNING
 
-    def add_player(self, player_class):
+    def add_player(self, player):
         player_id = len(self.players)
-        player = self._init_player(player_class, player_id)
+        player = self._init_player(player, player_id)
         self.players.append(player)
         return self
 
     def bind_action(self, key, action):
         self.key_bindings[key] = action
 
-    def _init_player(self, player_class, player_id):
-        player = player_class()
+    def get_scores(self):
+        scores = {
+            player.id: player.score for player in self.players
+        }
+        return scores
+
+    def get_player(self, player_id):
+        player = self.players[player_id]
+        return player
+
+    def get_best_player(self):
+        scores = self.get_scores()
+        best_player_id = min(scores, key=scores.get)
+        best_player = self.get_player(best_player_id)
+        return best_player
+
+    def get_worst_player(self):
+        scores = self.get_scores()
+        best_player_id = max(scores, key=scores.get)
+        best_player = self.get_player(best_player_id)
+        return best_player
+
+    def remove_all_players(self):
+        self.players = []
+
+    def _init_player(self, player, player_id):
         player.set_position(self.track.start)
         player.id = player_id
         player.color = (
@@ -108,12 +134,9 @@ class Engine(object):
         )
         return player
 
-    def _setup_players(self, player_types):
-        players = []
-        for i, player_type in enumerate(player_types):
-            player = self._init_player(player_type, i)
-            players.append(player)
-        return players
+    def _setup_players(self, players):
+        for player in players:
+            self.add_player(player)
 
     def _setup_screen(self):
         size = (
