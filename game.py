@@ -27,6 +27,7 @@ import bresenham
 
 freetype.init()
 
+
 def dropped_frame_checker(seconds_per_frame):
     # Decorator that checks if a function is executed within frame time, and if not how many frame are skipped
     def decorator(f):
@@ -49,6 +50,7 @@ class Drawables(object):
     background = pygame.image.load('track_bg.png')
     track = pygame.image.load('track.png')
     train = pygame.image.load('train.png')
+    icon = pygame.image.load('icon.png')
     font = freetype.Font('roboto.ttf')
 
 
@@ -216,6 +218,8 @@ class Engine(object):
             int(self.track.width * Engine.SCALE),
             int(self.track.height * Engine.SCALE)
         )
+        pygame.display.set_caption('Train-a-Train')
+        pygame.display.set_icon(Drawables.icon)
         screen = pygame.display.set_mode(size)
 
         Drawables.background = pygame.transform.scale(Drawables.background, size)
