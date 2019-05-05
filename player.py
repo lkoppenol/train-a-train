@@ -95,7 +95,7 @@ class Ai(Player):
         else:
             rotation_command = -1
 
-        acceleration_command = self.speed < 3
+        acceleration_command = self.speed < 1
 
         return acceleration_command, rotation_command
 
