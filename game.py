@@ -74,9 +74,13 @@ class Engine(object):
 
         random.seed(42)
 
-    def play(self):
+    def play(self, stop_on_death=True):
         while self.is_running():
             self._turn()
+
+            if stop_on_death and self._is_game_over():
+                self._end_game()
+
             if self.game_settings['fps_limiter']:
                 time_to_next_frame = self.SECONDS_PER_FRAME - time.time() % self.SECONDS_PER_FRAME
                 time.sleep(time_to_next_frame)
@@ -166,9 +170,6 @@ class Engine(object):
             self._player_turn(player)
 
         self._draw()
-
-        if self._is_game_over():
-            self._end_game()
 
     def _player_turn(self, player):
         # Perform the sense-plan-act-resolve loop. The resolve can be per player as there is no possible interaction.
