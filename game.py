@@ -70,8 +70,7 @@ class Engine(object):
         self.keys = self._setup_keys()
         self.screen = self._setup_screen()
         self.game_settings = self._setup_game_settings()
-
-        self.action_0 = None
+        self.key_bindings = self._setup_key_bindings()
 
         random.seed(42)
 
@@ -91,13 +90,13 @@ class Engine(object):
         self.players.append(player)
         return self
 
-    def bind_action_to_0(self, action, args=[], kwargs={}):
-        self.action_0 = (action, args, kwargs)
+    def bind_action(self, key, action):
+        self.key_bindings[key] = action
 
-    def _init_player(self, player_class, id):
+    def _init_player(self, player_class, player_id):
         player = player_class()
         player.set_position(self.track.start)
-        player.id = id
+        player.id = player_id
         player.color = (
             random.randint(100, 255),
             random.randint(100, 255),
@@ -125,6 +124,15 @@ class Engine(object):
         Drawables.font.size = Engine.SCALE * 3
 
         return screen
+
+    def _setup_key_bindings(self):
+        key_bindings = {
+            pygame.K_1: self._toggle_draw_train,
+            pygame.K_2: self._toggle_draw_sensors,
+            pygame.K_3: self._toggle_draw_background,
+            pygame.K_4: self._toggle_fps_limiter
+        }
+        return key_bindings
 
     @staticmethod
     def _setup_keys():
@@ -256,29 +264,27 @@ class Engine(object):
             key_active = key_event.type == pygame.KEYDOWN
             self.keys[key_event.key] = key_active
         elif key_event.type == pygame.KEYDOWN:
-            if key_event.key == pygame.K_1:
-                self.game_settings['train'] = (self.game_settings['train'] + 1) % 3
-                logger.debug(f"Drawing train toggled, status now {self.game_settings['train']}")
-            elif key_event.key == pygame.K_2:
-                self.game_settings['sensors'] = not self.game_settings['sensors']
-                logger.debug(f"Drawing sensors toggled, status now {self.game_settings['sensors']}")
-            elif key_event.key == pygame.K_3:
-                self.game_settings['background'] = (self.game_settings['background'] + 1) % 3
-                logger.debug(f"Drawing background toggled, status now {self.game_settings['background']}")
-            elif key_event.key == pygame.K_4:
-                self.game_settings['fps_limiter'] = not self.game_settings['fps_limiter']
-                logger.debug(f"FPS limiter toggled, status now {self.game_settings['fps_limiter']}")
-            elif key_event.key == pygame.K_5:
-                # TODO: toggle debug text
+            try:
+                action = self.key_bindings[key_event.key]
+                action()
+            except KeyError:
                 pass
-            elif key_event.key == pygame.K_0:
-                if self.action_0:
-                    action = self.action_0[0]
-                    args = self.action_0[1]
-                    kwargs = self.action_0[2]
-                    action(*args, **kwargs)
-                else:
-                    logger.warning("Pls bind action to '0' with game_engine.bind_action_to_0(action, args, kwargs)")
+
+    def _toggle_draw_train(self):
+        self.game_settings['train'] = (self.game_settings['train'] + 1) % 3
+        logger.debug(f"Drawing train toggled, status now {self.game_settings['train']}")
+
+    def _toggle_draw_sensors(self):
+        self.game_settings['sensors'] = not self.game_settings['sensors']
+        logger.debug(f"Drawing sensors toggled, status now {self.game_settings['sensors']}")
+
+    def _toggle_draw_background(self):
+        self.game_settings['background'] = (self.game_settings['background'] + 1) % 3
+        logger.debug(f"Drawing background toggled, status now {self.game_settings['background']}")
+
+    def _toggle_fps_limiter(self):
+        self.game_settings['fps_limiter'] = not self.game_settings['fps_limiter']
+        logger.debug(f"FPS limiter toggled, status now {self.game_settings['fps_limiter']}")
 
     def _draw_score(self):
         # Background
