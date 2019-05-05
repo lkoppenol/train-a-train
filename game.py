@@ -25,8 +25,10 @@ from pygame import freetype
 
 import bresenham
 
+freetype.init()
 
 def dropped_frame_checker(seconds_per_frame):
+    # Decorator that checks if a function is executed within frame time, and if not how many frame are skipped
     def decorator(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
@@ -41,7 +43,9 @@ def dropped_frame_checker(seconds_per_frame):
 
 
 class Drawables(object):
-    freetype.init()
+    """
+    Static class with things to draw
+    """
     background = pygame.image.load('track_bg.png')
     track = pygame.image.load('track.png')
     train = pygame.image.load('train.png')
@@ -50,24 +54,28 @@ class Drawables(object):
 
 class Engine(object):
     """
-    The game engine, consiting of 2 seperate loops. A GUI loop which triggers Engine.on_draw(), and the game loop which
-    triggers Engine.update().
+    The game engine is responsible for the game logic per turn, listening game events (key inputs) and drawing the game.
+    Can be kicked off by calling engine.play(), which repeatedly calls engine._turn().
     """
     RUNNING = 0
     FINISHED = 1
-    SECONDS_PER_FRAME = 1/30
-    SCALE = 1/0.3
+    SECONDS_PER_FRAME = 1/30  # Step size of turns. Slows down the game if frames are dropped
+    SCALE = 1/0.3  # Changing might ruin gaming experience
     ACCELERATION = 5
     ROTATION_SPEED = 180
 
-    def __init__(self, track, player_types):
+    def __init__(self, environment, players):
+        """
+        :param environment: instance of game.Environment
+        :param players: iterable of subclasses of player.Player
+        """
         pygame.init()
 
         self.game_status = Engine.RUNNING
-        self.track = track
+        self.track = environment
 
         self.players = []
-        self._setup_players(player_types)
+        self._setup_players(players)
 
         self.keys = self._setup_keys()
         self.screen = self._setup_screen()
@@ -77,6 +85,12 @@ class Engine(object):
         random.seed(42)
 
     def play(self, stop_on_death=True):
+        """
+        Start the game!
+        Does not start a thread; will hold execution until game is completed.
+        :param stop_on_death: Wether to stop if all players are ded irl
+        :return: self
+        """
         while self.is_running():
             self._turn()
 
@@ -86,45 +100,94 @@ class Engine(object):
             if self.game_settings['fps_limiter']:
                 time_to_next_frame = self.SECONDS_PER_FRAME - time.time() % self.SECONDS_PER_FRAME
                 time.sleep(time_to_next_frame)
+        return self
 
     def is_running(self):
+        """
+        Check if all players are ded irl
+        :return: boolean
+        """
         return self.game_status == Engine.RUNNING
 
     def add_player(self, player):
+        """
+        Add a player to the game while the game is running.
+        :param player: instance of player.Player
+        :return: self
+        """
         player_id = len(self.players)
         player = self._init_player(player, player_id)
         self.players.append(player)
         return self
 
     def bind_action(self, key, action):
+        """
+        Bind an action to a pygame key. Example usage:
+
+        > game_engine.bind_action(pygame.K_a, lambda: print(123))
+        prints 123 when 'a' is pressed during the game.
+
+        :param key: pygame key index
+        :param action: function to call
+        :return:
+        """
         self.key_bindings[key] = action
 
     def get_scores(self):
+        """
+        Get a dictionary of scores on the scoreboard.
+        :return: dict {player_id: score}
+        """
         scores = {
             player.id: player.score for player in self.players
         }
         return scores
 
     def get_player(self, player_id):
+        """
+        Get the player object that corresponds with given player_id
+        :param player_id: integer
+        :return: player.Player object
+        """
         player = self.players[player_id]
         return player
 
     def get_best_player(self):
+        """
+        Get the player object of the player with the lowest score (furthest in the race)
+        :return: player.Player object
+        """
         scores = self.get_scores()
         best_player_id = min(scores, key=scores.get)
         best_player = self.get_player(best_player_id)
         return best_player
 
     def get_worst_player(self):
+        """
+        Get the player object of the player with the highest score (furthest from the finish)
+        :return: player.Player object
+        """
         scores = self.get_scores()
         best_player_id = max(scores, key=scores.get)
         best_player = self.get_player(best_player_id)
         return best_player
 
-    def remove_all_players(self):
-        self.players = []
+    def remove_all_players(self, keep=list()):
+        """
+        Destroys the reference to all existing players
+        :param keep: optional list of player.Player instances to keep
+        :return: self
+        """
+        self.players = keep
+        return self
 
     def _init_player(self, player, player_id):
+        """
+        Set position, color and id for a player
+        :param player: player.Player
+        :param player_id: id to give to player
+        :return: player
+        """
         player.set_position(self.track.start)
         player.id = player_id
         player.color = (
@@ -135,10 +198,20 @@ class Engine(object):
         return player
 
     def _setup_players(self, players):
+        """
+        # initialise all starting players
+        :param players: list of player.Player objects
+        :return: self
+        """
         for player in players:
             self.add_player(player)
+        return self
 
     def _setup_screen(self):
+        """
+        Prepare the pygame graphics
+        :return: pygame.screen canvas to draw on
+        """
         size = (
             int(self.track.width * Engine.SCALE),
             int(self.track.height * Engine.SCALE)
@@ -153,6 +226,11 @@ class Engine(object):
         return screen
 
     def _setup_key_bindings(self):
+        """
+        # Set up the initial key bindings using a dictionary of keys to listen to with corresponding functions. This
+        makes it easy to add new functions to new keys.
+        :return: dict of key bindings.
+        """
         key_bindings = {
             pygame.K_1: self._toggle_draw_train,
             pygame.K_2: self._toggle_draw_sensors,
@@ -163,6 +241,10 @@ class Engine(object):
 
     @staticmethod
     def _setup_keys():
+        """
+        Gives the arrow keys a special status. The game will keep track per turn whether the key was down or not.
+        :return: dict of keys and down-status
+        """
         keys = {
             pygame.K_LEFT: False,
             pygame.K_UP: False,
@@ -173,6 +255,10 @@ class Engine(object):
 
     @staticmethod
     def _setup_game_settings():
+        """
+        Game settings that can be toggled using the initial key bindings
+        :return: dict of options
+        """
         toggle_options = dict(
             train=0,
             sensors=False,
@@ -184,8 +270,7 @@ class Engine(object):
     @dropped_frame_checker(SECONDS_PER_FRAME)
     def _turn(self):
         """
-        A game consists of a sense-plan-act-resolve loop for every player, followed by a check if game is over yet.
-
+        A game turn consists of a check of keyboard events, a resolve loop per player and a drawing fase.
         :return: Nothing
         """
         self._handle_pygame_events()
@@ -195,16 +280,22 @@ class Engine(object):
         self._draw()
 
     def _player_turn(self, player):
-        # Perform the sense-plan-act-resolve loop. The resolve can be per player as there is no possible interaction.
+        """
+        Perform the sense-plan-act-resolve loop. The resolve can be per player as there is no possible interaction.
+        :param player: player.Player object
+        :return: Nothing
+        """
         if player.alive:
-            # TODO: pass speed and rotations as input
             percepts = player.sense(self.track, self.keys)
             acceleration_command, rotation_command = player.plan(percepts)
             movement = self._act(player, acceleration_command, rotation_command, self.SECONDS_PER_FRAME)
             self._resolve(player, movement)
 
     def _is_game_over(self):
-        # Check if there is a player that is alive
+        """
+        Check if there is a player that is alive
+        :return: True if any player is alive
+        """
         for player in self.players:
             if player.alive:
                 return False
@@ -212,13 +303,19 @@ class Engine(object):
             return True
 
     def _end_game(self):
+        """
+        Gracefully close pygame
+        :return: self
+        """
         pygame.quit()
         self.game_status = Engine.FINISHED
+        return self
 
     def _draw(self):
         """
-        Called by arcade for every frame.
-        Draws the background, player and possibly debug information
+        Called for every frame.
+        Can draws the background, player (including sensors) and score.
+        Drawing is done by placing drawables on the canvas (self.screen) and calling pygame.display.update()
         :return: Nothing
         """
         self._draw_background()
@@ -284,7 +381,7 @@ class Engine(object):
                 self._handle_key_event(event)
 
     def _handle_key_event(self, key_event):
-        if key_event.key in [pygame.K_LEFT, pygame.K_UP, pygame.K_DOWN, pygame.K_RIGHT]:
+        if key_event.key in self.keys.keys():
             key_active = key_event.type == pygame.KEYDOWN
             self.keys[key_event.key] = key_active
         elif key_event.type == pygame.KEYDOWN:
@@ -295,23 +392,42 @@ class Engine(object):
                 pass
 
     def _toggle_draw_train(self):
+        """
+        Set the draw status of train to either full (0), basic(1) or none(2)
+        :return: nothing
+        """
         self.game_settings['train'] = (self.game_settings['train'] + 1) % 3
         logger.debug(f"Drawing train toggled, status now {self.game_settings['train']}")
 
     def _toggle_draw_sensors(self):
+        """
+        Set the draw status of the sensors to True or False
+        :return: nothing
+        """
         self.game_settings['sensors'] = not self.game_settings['sensors']
         logger.debug(f"Drawing sensors toggled, status now {self.game_settings['sensors']}")
 
     def _toggle_draw_background(self):
+        """
+        Set the draw status of background to either full(0), boundaries(1) or nothing(2)
+        :return:
+        """
         self.game_settings['background'] = (self.game_settings['background'] + 1) % 3
         logger.debug(f"Drawing background toggled, status now {self.game_settings['background']}")
 
     def _toggle_fps_limiter(self):
+        """
+        Toggle whether to limit the number of frames that pass.
+        :return:
+        """
         self.game_settings['fps_limiter'] = not self.game_settings['fps_limiter']
         logger.debug(f"FPS limiter toggled, status now {self.game_settings['fps_limiter']}")
 
     def _draw_score(self):
-        # Background
+        """
+        Draw a vertical bar with scores per player
+        :return:
+        """
         pygame.draw.rect(
             self.screen,
             (0, 0, 0),
@@ -334,7 +450,10 @@ class Engine(object):
             )
 
     def _draw_background(self):
-        # Draw background
+        """
+        Draw the background based on given option
+        :return:
+        """
         if self.game_settings['background'] == 0:
             self.screen.blit(Drawables.background, (0, 0))
         elif self.game_settings['background'] == 1:
@@ -382,32 +501,40 @@ class Engine(object):
         :param sensor: Sensor object, see DistanceSensor for example
         :return: nothing
         """
-        # Determine color and length based on percept value.
-        if sensor.percept is None:
-            distance = sensor.depth
-            color = (0, 255, 0)
-        else:
-            distance = sensor.percept
-            color = (255, 255, 255)
+        if sensor.is_drawable:
+            # Determine color and length based on percept value.
+            if sensor.percept is None:
+                distance = sensor.depth
+                color = (0, 255, 0)
+            else:
+                distance = sensor.percept
+                color = (255, 255, 255)
 
-        # Set target
-        target = self.track.translate(
-            player.position,
-            distance,
-            sensor.get_absolute_angle()
-        )
+            # Set target
+            target = self.track.translate(
+                player.position,
+                distance,
+                sensor.get_absolute_angle()
+            )
 
-        # Scale and draw
-        scaled_origin = player.get_position(scale=self.SCALE)
-        scaled_target = [p * self.SCALE for p in target]
-        pygame.draw.line(
-            self.screen,
-            color,
-            scaled_origin,
-            scaled_target
-        )
+            # Scale and draw
+            scaled_origin = player.get_position(scale=self.SCALE)
+            scaled_target = [p * self.SCALE for p in target]
+            pygame.draw.line(
+                self.screen,
+                color,
+                scaled_origin,
+                scaled_target
+            )
 
     def _draw_sprite(self, sprite, x, y):
+        """
+        Draw a sprite based on given center coordinates
+        :param sprite: pygame sprite
+        :param x: horizontal scaled gui coordinate
+        :param y: vertical scaled gui coordinate
+        :return: nothing
+        """
         width = sprite.get_width()
         height = sprite.get_height()
 
