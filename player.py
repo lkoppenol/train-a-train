@@ -57,21 +57,23 @@ class HumanPlayer(Player):
 
 
 class Ai(Player):
+    SENSOR_DISTANCE = 50
+
     def __init__(self, random_change=False):
         super().__init__()
-        self.rules = [[random() - 0.5 for _ in range(4)] for __ in range(4)]
+        self.rules = [[random() - 0.5 for _ in range(4)] for __ in range(2)]
         if random_change:
             if type(random_change) is float:
                 self._neighborhood_search(random_change)
             else:
                 self._neighborhood_search()
 
-        self.sensors += [DistanceSensor(self, a, 50) for a in [-30, 0, 30]]
+        self.sensors += [DistanceSensor(self, a, Ai.SENSOR_DISTANCE) for a in [-30, 0, 30]]
 
     def give_birth(self):
         baby = Ai()
         baby.rules = self.rules
-        baby._neighborhood_search(0.1)
+        baby._neighborhood_search(0.5)
         return baby
 
     def sense(self, track, keys):
@@ -83,8 +85,9 @@ class Ai(Player):
         for rule in self.rules:
             rule_total = rule[-1]
             for i, s in enumerate(percepts):
-                if s is not None:
-                    rule_total += rule[i] * s
+                if s is None:
+                    s = Ai.SENSOR_DISTANCE
+                rule_total += rule[i] * s
             rule_totals.append(rule_total)
 
         if rule_totals[0] > rule_totals[1]:
@@ -92,10 +95,7 @@ class Ai(Player):
         else:
             rotation_command = -1
 
-        if rule_totals[2] > rule_totals[3]:
-            acceleration_command = 1
-        else:
-            acceleration_command = -1
+        acceleration_command = self.speed < 3
 
         return acceleration_command, rotation_command
 
