@@ -109,6 +109,7 @@ class DistanceSensor(object):
         self.angle = angle
         self.depth = depth
         self.percept = None
+        self.is_drawable = True  # Sensor must have percept, depth and get_absolute_angle() to be drawable
 
     def perceive(self, track):
         percept = track.ray_trace_to_wall(
