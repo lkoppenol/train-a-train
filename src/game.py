@@ -23,7 +23,7 @@ from loguru import logger
 import pygame
 from pygame import freetype
 
-import bresenham
+from . import bresenham
 
 freetype.init()
 
@@ -41,17 +41,6 @@ def dropped_frame_checker(seconds_per_frame):
                 logger.warning(f"game thread skipped {frames_skipped} frame(s)")
         return wrapper
     return decorator
-
-
-class Drawables(object):
-    """
-    Static class with things to draw
-    """
-    background = pygame.image.load('track_bg.png')
-    track = pygame.image.load('track.png')
-    train = pygame.image.load('train.png')
-    icon = pygame.image.load('icon.png')
-    font = freetype.Font('roboto.ttf')
 
 
 class Engine(object):
@@ -80,7 +69,7 @@ class Engine(object):
         self._setup_players(players)
 
         self.keys = self._setup_keys()
-        self.screen = self._setup_screen()
+        self.screen = self._setup_graphics()
         self.game_settings = self._setup_game_settings()
         self.key_bindings = self._setup_key_bindings()
 
@@ -209,7 +198,7 @@ class Engine(object):
             self.add_player(player)
         return self
 
-    def _setup_screen(self):
+    def _setup_graphics(self):
         """
         Prepare the pygame graphics
         :return: pygame.screen canvas to draw on
@@ -219,13 +208,15 @@ class Engine(object):
             int(self.track.height * Engine.SCALE)
         )
         pygame.display.set_caption('Train-a-Train')
-        pygame.display.set_icon(Drawables.icon)
+        icon = pygame.image.load('visuals/icon.png')
+        pygame.display.set_icon(icon)
         screen = pygame.display.set_mode(size)
 
-        Drawables.background = pygame.transform.scale(Drawables.background, size)
-        Drawables.track = pygame.transform.scale(Drawables.track, size)
-        Drawables.train = pygame.transform.scale(Drawables.train, (78, 21))
-        Drawables.font.size = Engine.SCALE * 3
+        train = pygame.image.load('visuals/train.png')
+        self.train = pygame.transform.scale(train, (78, 21))
+
+        font_size = Engine.SCALE * 3
+        self.roboto_font = freetype.Font('visuals/roboto.ttf', size=font_size)
 
         return screen
 
@@ -446,7 +437,7 @@ class Engine(object):
         for i, player in enumerate(self.players):
             score_text = f"{player.id:03} - {player.score:03.0f}"
             y = i * 3 * Engine.SCALE
-            Drawables.font.render_to(
+            self.roboto_font.render_to(
                 self.screen,
                 (0, y),
                 score_text,
@@ -459,9 +450,9 @@ class Engine(object):
         :return:
         """
         if self.game_settings['background'] == 0:
-            self.screen.blit(Drawables.background, (0, 0))
+            self.screen.blit(self.track.drawables['background'], (0, 0))
         elif self.game_settings['background'] == 1:
-            self.screen.blit(Drawables.track, (0, 0))
+            self.screen.blit(self.track.drawables['raw'], (0, 0))
         elif self.game_settings['background'] == 2:
             self.screen.fill((0, 0, 0))
 
@@ -474,7 +465,7 @@ class Engine(object):
         """
         scaled_x, scaled_y = player.get_position(scale=self.SCALE)
         if self.game_settings['train'] == 0:
-            sprite = pygame.transform.rotate(Drawables.train, -player.rotation + 90)
+            sprite = pygame.transform.rotate(self.train, -player.rotation + 90)
             self._draw_sprite(sprite, scaled_x, scaled_y)
         elif self.game_settings['train'] == 1:
             # Set target
@@ -561,16 +552,20 @@ class Environment(object):
 
     This class also contains environment related helper functions.
     """
-    def __init__(self, path):
+    def __init__(self, track):
         """
-        :param path: path to a png with track information
+        :param track: must correspond to the name of a folder in tracks/foldername
         """
-        track_img = Image.open(path)
-        self.path = path
+        track_path = f'tracks/{track}/track.png'
+        background_path = f'tracks/{track}/track_bg.png'
+
+        track_img = Image.open(track_path)
         self.width = track_img.width
         self.height = track_img.height
         self.boundaries, self.finish, self.start = self.parse_track(track_img)
         self.distance_matrix = self.get_distance_matrix()
+
+        self.drawables = self._setup_drawables(track_path, background_path)
 
     @staticmethod
     def parse_track(track_img):
@@ -692,6 +687,28 @@ class Environment(object):
                 distance + 1
             )
         return distance_matrix
+
+    def _setup_drawables(self, track_path, background_path):
+        """
+        Use the track sprites to create fitting images for the game
+        :param track_path: path to the raw track
+        :param background_path: path to the fancy background for the track
+        :return: dict(background, raw)
+        """
+        size = (
+            int(self.width * Engine.SCALE),
+            int(self.height * Engine.SCALE)
+        )
+
+        background = pygame.image.load(background_path)
+        scaled_background = pygame.transform.scale(background, size)
+
+        track = pygame.image.load(track_path)
+        scaled_track = pygame.transform.scale(track, size)
+
+        drawables = dict(background=scaled_background, raw=scaled_track)
+
+        return drawables
 
     @staticmethod
     def translate(position, distance, rotation, pixel=False):

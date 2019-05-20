@@ -1,10 +1,10 @@
-from game import Engine, Environment
-from player import HumanPlayer, Ai
+from src.game import Engine, Environment
+from src.player import HumanPlayer, Ai
 import pygame
 
 
 def main():
-    track = Environment('track.png')
+    track = Environment('assen')
     game_engine = Engine(track, [HumanPlayer()])
     game_engine.bind_action(pygame.K_9, lambda: game_engine.add_player(Ai()))
     game_engine.bind_action(pygame.K_0, lambda: new_player(game_engine))
