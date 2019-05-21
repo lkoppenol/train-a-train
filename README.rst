@@ -9,4 +9,4 @@ Train-a-Train
 Documentation
 -------------
 
-The docs are hosted on `ReadTheDocs <https://train-a-train.readthedocs.io/en/latest/>`_.
+Documentation to be found on `ReadTheDocs <https://train-a-train.readthedocs.io/en/latest/>`_.
