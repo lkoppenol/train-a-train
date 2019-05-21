@@ -6,6 +6,8 @@ Train-a-Train
 ====================================================
 **Train-a-Train** is a 2D train racing game made for demonstrating the simplest of AI applications.
 
+.. image:: ./docs/source/screenshot.jpg
+
 Documentation
 -------------
 
