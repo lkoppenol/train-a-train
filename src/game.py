@@ -454,6 +454,8 @@ class Engine(object):
         elif self.game_settings['background'] == 1:
             self.screen.blit(self.track.drawables['raw'], (0, 0))
         elif self.game_settings['background'] == 2:
+            self.screen.blit(self.track.drawables['distance_matrix'], (0, 0))
+        elif self.game_settings['background'] == 3:
             self.screen.fill((0, 0, 0))
 
     def _draw_train(self, player):
@@ -652,6 +654,21 @@ class Environment(object):
         )
         return distance_matrix
 
+    def _distance_matrix_to_drawable(self):
+        # Unreadable ugly ass function
+        # TODO: beautify
+        drawable = self.distance_matrix * (255 / self.distance_matrix.max())
+        w, h = drawable.shape
+        grayscale = np.empty((w, h, 3), dtype=np.uint8)
+        grayscale[:, :, 2] = grayscale[:, :, 1] = grayscale[:, :, 0] = drawable
+        surface = pygame.surfarray.make_surface(grayscale)
+        size = (
+            int(self.width * Engine.SCALE),
+            int(self.height * Engine.SCALE)
+        )
+        drawable = pygame.transform.scale(surface, size)
+        return drawable
+
     def _recursive_distance(self, distance_matrix, points, distance):
         """
         Find all neighboring pixels and give them value distance + 1
@@ -706,7 +723,13 @@ class Environment(object):
         track = pygame.image.load(track_path)
         scaled_track = pygame.transform.scale(track, size)
 
-        drawables = dict(background=scaled_background, raw=scaled_track)
+        distance_matrix_drawable = self._distance_matrix_to_drawable()
+
+        drawables = dict(
+            background=scaled_background,
+            raw=scaled_track,
+            distance_matrix=distance_matrix_drawable
+        )
 
         return drawables
 
