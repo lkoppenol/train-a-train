@@ -1,7 +1,7 @@
 """
 :author: Laurens Koppenol
 
-The game engine for a 2D racing game, using the arcade library. Built to demonstrate the concept behavioral learning.
+The game engine for a 2D racing game, using the pygame library. Built to demonstrate the concept behavioral learning.
 
 Custom track can be built in paint, please see :doc:`getting-started` for more information.
 
@@ -347,10 +347,14 @@ class Engine(object):
         :param delta_time: time since last turn in seconds
         :return: target location of the player (x, y)
         """
+        acceleration_command = max(-1, acceleration_command)  # prevent cheating
+        acceleration_command = min(1, acceleration_command)  # prevent cheating
         new_speed = player.speed + acceleration_command * self.ACCELERATION * delta_time
         player.speed = max(new_speed, 0)
 
         # forces rotation to be in range [0, 360]
+        rotation_command = max(-1, rotation_command)  # prevent cheating
+        rotation_command = min(1, rotation_command)  # prevent cheating
         new_rotation = player.rotation + rotation_command * self.ROTATION_SPEED * delta_time
         player.rotation = (new_rotation + 360) % 360
 
@@ -520,17 +524,15 @@ class Engine(object):
         """
         if sensor.is_drawable:
             # Determine color and length based on percept value.
-            if sensor.percept is None:
-                distance = sensor.depth
+            if sensor.percept is sensor.depth:
                 color = (0, 255, 0)
             else:
-                distance = sensor.percept
                 color = (255, 255, 255)
 
             # Set target
             target = self.track.translate(
                 player.position,
-                distance,
+                sensor.percept,
                 sensor.get_absolute_angle()
             )
 
