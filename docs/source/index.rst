@@ -2,9 +2,12 @@ Train-a-Train
 =========================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
+   installation
+   getting-started
+   api-reference
 
 
 Indices and tables
@@ -13,3 +16,5 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+

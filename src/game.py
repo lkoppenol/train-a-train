@@ -1,15 +1,10 @@
 """
-@Author Laurens Koppenol
+:author: Laurens Koppenol
 
 The game engine for a 2D racing game, using the arcade library. Built to demonstrate the concept behavioral learning.
 
-Custom track can be built in paint, please see the Environment object for more information.
+Custom track can be built in paint, please see :doc:`getting-started` for more information.
 
-Example usage:
-track = Environment('track.png')
-players = [HumanPlayer(), Ai()]
-game_engine = Engine(track, 1 / 0.3, players)
-arcade.run()
 """
 
 import time
@@ -23,7 +18,7 @@ from loguru import logger
 import pygame
 from pygame import freetype
 
-from . import bresenham
+from src import bresenham
 
 freetype.init()
 
@@ -127,6 +122,7 @@ class Engine(object):
     def get_scores(self):
         """
         Get a dictionary of scores on the scoreboard.
+
         :return: dict {player_id: score}
         """
         scores = {
@@ -137,6 +133,7 @@ class Engine(object):
     def get_player(self, player_id):
         """
         Get the player object that corresponds with given player_id
+
         :param player_id: integer
         :return: player.Player object
         """
@@ -146,6 +143,7 @@ class Engine(object):
     def get_best_player(self):
         """
         Get the player object of the player with the lowest score (furthest in the race)
+
         :return: player.Player object
         """
         scores = self.get_scores()
@@ -156,6 +154,7 @@ class Engine(object):
     def get_worst_player(self):
         """
         Get the player object of the player with the highest score (furthest from the finish)
+
         :return: player.Player object
         """
         scores = self.get_scores()
@@ -166,6 +165,7 @@ class Engine(object):
     def remove_all_players(self, keep=list()):
         """
         Destroys the reference to all existing players
+
         :param keep: optional list of player.Player instances to keep
         :return: self
         """
@@ -175,6 +175,7 @@ class Engine(object):
     def _init_player(self, player, player_id):
         """
         Set position, color and id for a player
+
         :param player: player.Player
         :param player_id: id to give to player
         :return: player
@@ -190,7 +191,8 @@ class Engine(object):
 
     def _setup_players(self, players):
         """
-        # initialise all starting players
+        initialise all starting players
+
         :param players: list of player.Player objects
         :return: self
         """
@@ -201,6 +203,7 @@ class Engine(object):
     def _setup_graphics(self):
         """
         Prepare the pygame graphics
+
         :return: pygame.screen canvas to draw on
         """
         size = (
@@ -224,6 +227,7 @@ class Engine(object):
         """
         # Set up the initial key bindings using a dictionary of keys to listen to with corresponding functions. This
         makes it easy to add new functions to new keys.
+
         :return: dict of key bindings.
         """
         key_bindings = {
@@ -238,6 +242,7 @@ class Engine(object):
     def _setup_keys():
         """
         Gives the arrow keys a special status. The game will keep track per turn whether the key was down or not.
+
         :return: dict of keys and down-status
         """
         keys = {
@@ -252,6 +257,7 @@ class Engine(object):
     def _setup_game_settings():
         """
         Game settings that can be toggled using the initial key bindings
+
         :return: dict of options
         """
         toggle_options = dict(
@@ -266,6 +272,7 @@ class Engine(object):
     def _turn(self):
         """
         A game turn consists of a check of keyboard events, a resolve loop per player and a drawing fase.
+
         :return: Nothing
         """
         self._handle_pygame_events()
@@ -277,6 +284,7 @@ class Engine(object):
     def _player_turn(self, player):
         """
         Perform the sense-plan-act-resolve loop. The resolve can be per player as there is no possible interaction.
+
         :param player: player.Player object
         :return: Nothing
         """
@@ -289,6 +297,7 @@ class Engine(object):
     def _is_game_over(self):
         """
         Check if there is a player that is alive
+
         :return: True if any player is alive
         """
         for player in self.players:
@@ -300,6 +309,7 @@ class Engine(object):
     def _end_game(self):
         """
         Gracefully close pygame
+
         :return: self
         """
         pygame.quit()
@@ -311,6 +321,7 @@ class Engine(object):
         Called for every frame.
         Can draws the background, player (including sensors) and score.
         Drawing is done by placing drawables on the canvas (self.screen) and calling pygame.display.update()
+
         :return: Nothing
         """
         self._draw_background()
@@ -329,6 +340,7 @@ class Engine(object):
     def _act(self, player, acceleration_command, rotation_command, delta_time):
         """
         Based on the selected actions of the player, the player state is altered
+
         :param player: a child class of Player
         :param acceleration_command: between -1 (breaking) and 1 (accelerating)
         :param rotation_command: between -1 (left) and 1 (right)
@@ -348,6 +360,7 @@ class Engine(object):
     def _resolve(self, player, destination):
         """
         Alter the position of the player and check if this causes a finish or collission
+
         :param player: a child class of Player
         :param destination: target location of the player (x, y)
         :return: nothing
@@ -389,6 +402,7 @@ class Engine(object):
     def _toggle_draw_train(self):
         """
         Set the draw status of train to either full (0), basic(1) or none(2)
+
         :return: nothing
         """
         self.game_settings['train'] = (self.game_settings['train'] + 1) % 3
@@ -397,6 +411,7 @@ class Engine(object):
     def _toggle_draw_sensors(self):
         """
         Set the draw status of the sensors to True or False
+
         :return: nothing
         """
         self.game_settings['sensors'] = not self.game_settings['sensors']
@@ -405,6 +420,7 @@ class Engine(object):
     def _toggle_draw_background(self):
         """
         Set the draw status of background to either full(0), boundaries(1) or nothing(2)
+
         :return:
         """
         self.game_settings['background'] = (self.game_settings['background'] + 1) % 3
@@ -413,6 +429,7 @@ class Engine(object):
     def _toggle_fps_limiter(self):
         """
         Toggle whether to limit the number of frames that pass.
+
         :return:
         """
         self.game_settings['fps_limiter'] = not self.game_settings['fps_limiter']
@@ -421,6 +438,7 @@ class Engine(object):
     def _draw_score(self):
         """
         Draw a vertical bar with scores per player
+
         :return:
         """
         pygame.draw.rect(
@@ -447,6 +465,7 @@ class Engine(object):
     def _draw_background(self):
         """
         Draw the background based on given option
+
         :return:
         """
         if self.game_settings['background'] == 0:
@@ -494,6 +513,7 @@ class Engine(object):
         """
         Draw given sensor for given player. Scales the target and destination of sensor to given location. Currently
         only supports line-like sensors that have the following attributes: percept, depth, get_absolute_angle()
+
         :param player: subclass of Player
         :param sensor: Sensor object, see DistanceSensor for example
         :return: nothing
@@ -527,6 +547,7 @@ class Engine(object):
     def _draw_sprite(self, sprite, x, y):
         """
         Draw a sprite based on given center coordinates
+
         :param sprite: pygame sprite
         :param x: horizontal scaled gui coordinate
         :param y: vertical scaled gui coordinate
@@ -556,6 +577,7 @@ class Environment(object):
     """
     def __init__(self, track):
         """
+
         :param track: must correspond to the name of a folder in tracks/foldername
         """
         track_path = f'tracks/{track}/track.png'
@@ -573,6 +595,7 @@ class Environment(object):
     def parse_track(track_img):
         """
         Extract track boundaries, start and finish from a png-pillow image.
+
         :param track_img: png-pillow image
         :return: boundaries, finish and start as Numpy ndarrays
         """
@@ -599,6 +622,7 @@ class Environment(object):
     def check_collision(self, player):
         """
         check if a given player is colliding with a boundary (red pixel)
+
         :param player: subclass of Player
         :return: True or False
         """
@@ -609,6 +633,7 @@ class Environment(object):
     def get_distance(self, player):
         """
         Check how many pixels (manhattan distance) a player is located from the finish
+
         :param player: subclass of Player
         :return: integer, 0 for wall, 1 for finish, > 1 for anything else
         """
@@ -672,6 +697,7 @@ class Environment(object):
     def _recursive_distance(self, distance_matrix, points, distance):
         """
         Find all neighboring pixels and give them value distance + 1
+
         :param distance_matrix: Numpy ndarray with current distances
         :param points: List of coorindates
         :param distance: current distance
@@ -708,6 +734,7 @@ class Environment(object):
     def _setup_drawables(self, track_path, background_path):
         """
         Use the track sprites to create fitting images for the game
+
         :param track_path: path to the raw track
         :param background_path: path to the fancy background for the track
         :return: dict(background, raw)
@@ -737,6 +764,7 @@ class Environment(object):
     def translate(position, distance, rotation, pixel=False):
         """
         Translate a coordinaten given a distance and rotation. Can round to integer pixel coordinates
+
         :param position: origin (x, y)
         :param distance: int or float
         :param rotation: angle in degrees
@@ -758,6 +786,7 @@ class Environment(object):
     def location_to_pixel(coordinate):
         """
         Round a coordinate to integer pixel coordinates
+
         :param coordinate: (x, y)
         :return: (int, int)
         """

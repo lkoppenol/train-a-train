@@ -1,0 +1,7 @@
+player
+=========================================
+
+.. automodule:: player
+   :members:
+
+
