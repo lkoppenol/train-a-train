@@ -1,6 +1,6 @@
 .. image:: https://readthedocs.org/projects/train-a-train/badge/?version=latest
-:target: https://train-a-train.readthedocs.io/en/latest/?badge=latest
-:alt: Documentation Status
+   :target: https://train-a-train.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
 
 Train-a-Train
 ====================================================
