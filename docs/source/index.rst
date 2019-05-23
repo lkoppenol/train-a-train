@@ -13,5 +13,7 @@ Train-a-Train
 
    installation
    getting-started
+   workshop
    api-reference
+
 
