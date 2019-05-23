@@ -19,6 +19,8 @@ The train can be controlled much like an actual train, using the arrow keys. Gam
 - By default, if all players are dead, the game shuts down. To prevent this call game_engine.play(stop_on_death=False)
 - Score is shown on a panel on the left. Please bring reading glasses. Score is calculated as distance to the finish,
   meaning a lower score is better!
+- Closing the window does not work, so just press the PyCharm stop button or your favorite ctrl+c alternative in your
+  favorite command prompt alternative.
 
 main.py explained
 -----------------
