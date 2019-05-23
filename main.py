@@ -1,10 +1,15 @@
 from src.game import Engine, Environment
-from src.player import HumanPlayer, NaiveAi
+from src.player import HumanPlayer
 
 
 def main():
     track = Environment('assen')
-    game_engine = Engine(track, [HumanPlayer(), NaiveAi()])
+
+    game_engine = Engine(
+        environment=track,
+        players=[HumanPlayer()]
+    )
+
     game_engine.play()
 
 
