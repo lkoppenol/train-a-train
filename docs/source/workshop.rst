@@ -63,3 +63,26 @@ Challenge
 - If no teams finishes there can still be a tie. But shame on you!
 
 
+Write your **WinningAi** so that it can be used as follow and hand in all required files before the deadline.
+
+.. code-block:: python
+
+    from src.game import Engine, Environment
+    from yourmodule import WinningAi
+
+
+    def main():
+        track = Environment('super_secret_final_map')
+
+        game_engine = Engine(
+            environment=track,
+            players=[WinningAi()]
+        )
+
+        game_engine.play()
+
+
+    if __name__ == "__main__":
+        main()
+
+
