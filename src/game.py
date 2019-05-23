@@ -20,8 +20,6 @@ from pygame import freetype
 
 from src import bresenham
 
-freetype.init()
-
 
 def dropped_frame_checker(seconds_per_frame):
     # Decorator that checks if a function is executed within frame time, and if not how many frame are skipped
@@ -56,6 +54,7 @@ class Engine(object):
         :param players: iterable of subclasses of player.Player
         """
         pygame.init()
+        self.tick = 0
 
         self.game_status = Engine.RUNNING
         self.track = environment
@@ -86,6 +85,8 @@ class Engine(object):
             if self.game_settings['fps_limiter']:
                 time_to_next_frame = self.SECONDS_PER_FRAME - time.time() % self.SECONDS_PER_FRAME
                 time.sleep(time_to_next_frame)
+
+            self.tick += 1
         return self
 
     def is_running(self):
@@ -187,6 +188,7 @@ class Engine(object):
             random.randint(100, 255),
             random.randint(100, 255)
         )
+        player.starting_tick = self.tick
         return player
 
     def _setup_players(self, players):
@@ -206,6 +208,8 @@ class Engine(object):
 
         :return: pygame.screen canvas to draw on
         """
+        freetype.init()
+
         size = (
             int(self.track.width * Engine.SCALE),
             int(self.track.height * Engine.SCALE)
@@ -378,7 +382,9 @@ class Engine(object):
         collision = self.track.check_collision(player)
         if collision or player.score == 1:
             player.alive = False
-            # TODO: Handle score
+            player.ending_tick = self.tick
+            life_span = player.ending_tick - player.starting_tick
+            logger.info(f"Player {player.id} died with score {player.score:.0f} in {life_span} turns")
 
     def _handle_pygame_events(self):
         """
