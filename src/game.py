@@ -280,10 +280,12 @@ class Engine(object):
         :return: Nothing
         """
         self._handle_pygame_events()
-        for player in self.players:
-            self._player_turn(player)
 
-        self._draw()
+        if self.is_running():
+            for player in self.players:
+                self._player_turn(player)
+
+            self._draw()
 
     def _player_turn(self, player):
         """
@@ -395,7 +397,9 @@ class Engine(object):
         """
         events = pygame.event.get()
         for event in events:
-            if event.type in [pygame.KEYDOWN, pygame.KEYUP]:
+            if event.type == pygame.QUIT:
+                self._end_game()
+            elif event.type in [pygame.KEYDOWN, pygame.KEYUP]:
                 self._handle_key_event(event)
 
     def _handle_key_event(self, key_event):
