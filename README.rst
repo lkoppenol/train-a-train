@@ -9,7 +9,11 @@ Train-a-Train
    :target: https://github.com/tim00w/diagnostics/blob/master/LICENSE
    :alt: License: MIT
 
-**Train-a-Train** is a 2D train racing game made for demonstrating the simplest of AI applications.
+**Train-a-Train** is a 2D train racing game made for demonstrating the simplest of AI applications. To use as in a workshop please check the *workshop* section in the documentation (see below).
+
+Feel free to contact me on LinkedIn for questions or your high score!
+
+This project was initially used for a workshop at ProRail, the Dutch rail infrastructure company. This explains the train ;)
 
 Documentation
 -------------
