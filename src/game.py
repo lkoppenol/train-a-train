@@ -21,21 +21,6 @@ from pygame import freetype
 from src import bresenham
 
 
-def dropped_frame_checker(seconds_per_frame):
-    # Decorator that checks if a function is executed within frame time, and if not how many frame are skipped
-    def decorator(f):
-        @functools.wraps(f)
-        def wrapper(*args, **kwargs):
-            planned_next_frame = int(time.time() / seconds_per_frame)
-            f(*args, **kwargs)
-            actual_next_frame = int(time.time() / seconds_per_frame)
-            if planned_next_frame != actual_next_frame:
-                frames_skipped = actual_next_frame - planned_next_frame
-                logger.warning(f"game thread skipped {frames_skipped} frame(s)")
-        return wrapper
-    return decorator
-
-
 class Engine(object):
     """
     The game engine is responsible for the game logic per turn, listening game events (key inputs) and drawing the game.
@@ -48,7 +33,7 @@ class Engine(object):
     ACCELERATION = 5
     ROTATION_SPEED = 180
 
-    def __init__(self, environment, players):
+    def __init__(self, environment, players, headless=False):
         """
         :param environment: instance of game.Environment
         :param players: iterable of subclasses of player.Player
@@ -66,6 +51,11 @@ class Engine(object):
         self.screen = self._setup_graphics()
         self.game_settings = self._setup_game_settings()
         self.key_bindings = self._setup_key_bindings()
+
+        if headless:
+            self.stop_drawing()
+        else:
+            self.headless = False
 
         random.seed(42)
 
@@ -88,6 +78,14 @@ class Engine(object):
 
             self.tick += 1
         return self
+
+    def stop_drawing(self):
+        self.headless = True
+        self.game_settings['fps_limiter'] = False
+
+    def start_drawing(self):
+        self.headless = False
+        self.game_settings['fps_limiter'] = True
 
     def is_running(self):
         """
@@ -272,7 +270,6 @@ class Engine(object):
         )
         return toggle_options
 
-    @dropped_frame_checker(SECONDS_PER_FRAME)
     def _turn(self):
         """
         A game turn consists of a check of keyboard events, a resolve loop per player and a drawing fase.
@@ -285,7 +282,8 @@ class Engine(object):
             for player in self.players:
                 self._player_turn(player)
 
-            self._draw()
+            if not self.headless:
+                self._draw()
 
     def _player_turn(self, player):
         """
