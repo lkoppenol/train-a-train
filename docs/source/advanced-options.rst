@@ -5,8 +5,8 @@ Tricks for pro's
 ----------------
 
 - Press "1" to cycle between "fancy train", "minimal line" and "invisible"
-- Press "2" to cycle between "not showing sensors", "showing sensors". This requires the player to have drawable
-  sensors. See :doc:`ai-players` for more information about sensors
+- Press "2" to cycle between "not showing sensors", "showing sensors". The default HumanPlayer does not have sensors;
+  this will appear to do nothing. See :doc:`ai-players` for more information about sensors.
 - Press "3" to cycle between "fancy map", "raw map", "score map" and "no map"
 - Press "4" to toggle the frame rate limiter
 

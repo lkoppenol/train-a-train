@@ -1,4 +1,4 @@
-Getting started
+How it works
 =========================================
 
 .. toctree::
