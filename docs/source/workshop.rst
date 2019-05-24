@@ -33,6 +33,8 @@ Exercises
 
 2.3 Create your own track! Can you finish it?
 
+2.4 Run the game in headless mode with only an NaiveAi player
+
 3. Start subclassing!
 ~~~~~~~~~~~~~~~~~~~~~
 

@@ -19,8 +19,8 @@ The train can be controlled much like an actual train, using the arrow keys. Gam
 - By default, if all players are dead, the game shuts down. To prevent this call game_engine.play(stop_on_death=False)
 - Score is shown on a panel on the left. Please bring reading glasses. Score is calculated as distance to the finish,
   meaning a lower score is better!
-- Closing the window does not work, so just press the PyCharm stop button or your favorite ctrl+c alternative in your
-  favorite command prompt alternative.
+- The game can be run in headless mode to finish really fast. Makes it very hard for human players. Use the `headless`
+  kwargs in the Engine init for this.
 
 main.py explained
 -----------------
@@ -33,7 +33,7 @@ prepared.
     track = Environment('assen')
 
 Secondly, the game engine is initialized. The game engine is responsible for the game logic per turn, listening game
-events (key inputs) and drawing the game.
+events (key inputs) and drawing the game. The engine can be instantiated in headless mode.
 
 .. code-block:: python
 
