@@ -5,7 +5,7 @@ Train-a-Train
    :target: https://train-a-train.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
 
-.. image::  https://img.shields.io/pypi/l/pydiagnostics.svg?color=purple
+.. image::  https://img.shields.io/pypi/l/pydiagnostics.svg?color=brightgreen
    :target: https://github.com/tim00w/diagnostics/blob/master/LICENSE
    :alt: License: MIT
 
